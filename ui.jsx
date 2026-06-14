@@ -80,6 +80,11 @@ function GzIcon({ name, size = 20, color = C.accL, strokeWidth = 2 }) {
     goal: <><circle cx="12" cy="12" r="9" {...p} /><path d="M8 12h8" {...p} /></>,
     unique: <><circle cx="8" cy="8" r="3" {...p} /><circle cx="16" cy="16" r="3" {...p} /><path d="M10.5 10.5l3 3" {...p} /></>,
     wave: <path d="M4 14c2-2 4-2 6 0s4 2 6 0 4-2 6 0" {...p} />,
+    gavel: <><path d="M14 3l7 7-3 3-7-7 3-3zM5 12l3 3" {...p} /><path d="M3 21l6-6" {...p} /></>,
+    pitch: <><rect x="3" y="5" width="18" height="14" rx="2" {...p} /><circle cx="12" cy="12" r="3" {...p} /><path d="M12 5v14" {...p} /></>,
+    settings: <><circle cx="12" cy="12" r="3" {...p} /><path d="M12 2v2M12 20v2M4.9 4.9l1.4 1.4M17.7 17.7l1.4 1.4M2 12h2M20 12h2M4.9 19.1l1.4-1.4M17.7 6.3l1.4-1.4" {...p} /></>,
+    chevron: <path d="M9 6l6 6-6 6" {...p} />,
+    jersey: <><path d="M8 4l2 2h4l2-2 2 3v13H6V7l2-3z" {...p} /><path d="M10 9h4" {...p} /></>,
   };
   return (
     <svg width={size} height={size} viewBox="0 0 24 24" style={{ display: 'block', flexShrink: 0 }}>
@@ -240,6 +245,90 @@ function Avatar({ mgr, size = 38, ring }) {
   );
 }
 
+function GemPill({ value, size = 'md' }) {
+  const sm = size === 'sm';
+  return (
+    <span style={{
+      display: 'inline-flex', alignItems: 'center', gap: 5,
+      padding: sm ? '3px 9px' : '5px 12px', borderRadius: 999,
+      background: 'rgba(88,120,255,0.12)', border: '1px solid rgba(120,160,255,0.32)',
+      fontFamily: 'Archivo, sans-serif', fontWeight: 800, fontSize: sm ? 12 : 14, color: '#9eb8ff',
+    }}><GzIcon name="gem" size={sm ? 13 : 15} color="#9eb8ff" /> {typeof value === 'number' ? value.toLocaleString('fr-FR') : value}</span>
+  );
+}
+
+function HexFrame({ size = 52, children }) {
+  const s = size;
+  const hex = Array.from({ length: 6 }, (_, i) => {
+    const a = (i * Math.PI) / 3 - Math.PI / 6;
+    return `${s / 2 + (s * 0.44) * Math.cos(a)},${s / 2 + (s * 0.44) * Math.sin(a)}`;
+  }).join(' ');
+  return (
+    <div style={{ width: s, height: s, position: 'relative', flexShrink: 0 }}>
+      <svg width={s} height={s} viewBox={`0 0 ${s} ${s}`} style={{ position: 'absolute', inset: 0 }}>
+        <polygon points={hex} fill="rgba(201,146,46,0.08)" stroke="rgba(201,146,46,0.55)" strokeWidth={2} />
+      </svg>
+      <div style={{ position: 'absolute', inset: 0, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>{children}</div>
+    </div>
+  );
+}
+
+function XpBar({ level, current, max }) {
+  const pct = Math.round((current / max) * 100);
+  return (
+    <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
+      <div style={{
+        width: 34, height: 34, flexShrink: 0, display: 'flex', alignItems: 'center', justifyContent: 'center',
+        background: 'linear-gradient(135deg, rgba(201,146,46,0.25), rgba(201,146,46,0.08))',
+        clipPath: 'polygon(50% 0%, 93% 25%, 93% 75%, 50% 100%, 7% 75%, 7% 25%)',
+        fontFamily: 'Archivo,sans-serif', fontWeight: 900, fontSize: 14, color: C.accL,
+        boxShadow: '0 0 12px rgba(201,146,46,0.25)',
+      }}>{level}</div>
+      <div style={{ flex: 1 }}>
+        <div style={{ height: 8, borderRadius: 999, background: 'rgba(0,0,0,0.45)', overflow: 'hidden', border: '1px solid rgba(255,255,255,0.06)' }}>
+          <div style={{ width: pct + '%', height: '100%', background: `linear-gradient(90deg, ${C.acc2}, ${C.accL})`, boxShadow: `0 0 10px rgba(201,146,46,0.5)` }} />
+        </div>
+        <div style={{ fontSize: 10.5, color: C.mut2, marginTop: 4, fontWeight: 700 }}>{current.toLocaleString('fr-FR')} / {max.toLocaleString('fr-FR')} XP</div>
+      </div>
+    </div>
+  );
+}
+
+function NavTile({ icon, title, sub, tint, onClick }) {
+  const themes = {
+    gold:   { glow: 'rgba(201,146,46,0.35)',  border: 'rgba(201,146,46,0.45)',  bg: 'linear-gradient(180deg, rgba(201,146,46,0.14) 0%, rgba(0,0,0,0.2) 100%)', icon: C.accL },
+    purple: { glow: 'rgba(168,85,247,0.35)',  border: 'rgba(168,85,247,0.45)',  bg: 'linear-gradient(180deg, rgba(168,85,247,0.14) 0%, rgba(0,0,0,0.2) 100%)', icon: '#c084fc' },
+    teal:   { glow: 'rgba(45,212,191,0.32)',   border: 'rgba(45,212,191,0.42)',  bg: 'linear-gradient(180deg, rgba(45,212,191,0.12) 0%, rgba(0,0,0,0.2) 100%)', icon: '#5eead4' },
+    blue:   { glow: 'rgba(58,138,255,0.32)',   border: 'rgba(58,138,255,0.42)',  bg: 'linear-gradient(180deg, rgba(58,138,255,0.12) 0%, rgba(0,0,0,0.2) 100%)', icon: '#7eb4ff' },
+  }[tint] || themes.gold;
+  return (
+    <button onClick={onClick} style={{
+      flex: 1, minWidth: 0, border: `1px solid ${themes.border}`, borderRadius: 16, cursor: 'pointer',
+      background: themes.bg, padding: '14px 10px 12px', display: 'flex', flexDirection: 'column',
+      alignItems: 'center', textAlign: 'center', boxShadow: `0 0 24px ${themes.glow}, inset 0 1px 0 rgba(255,255,255,0.06)`,
+      color: C.txt,
+    }}>
+      <div style={{
+        width: 44, height: 44, borderRadius: '50%', marginBottom: 10,
+        background: 'rgba(0,0,0,0.35)', border: `1px solid ${themes.border}`,
+        display: 'flex', alignItems: 'center', justifyContent: 'center',
+        boxShadow: `0 0 16px ${themes.glow}`,
+      }}>
+        <GzIcon name={icon} size={22} color={themes.icon} />
+      </div>
+      <div style={{ fontFamily: 'Archivo,sans-serif', fontWeight: 900, fontSize: 11.5, letterSpacing: 0.3, lineHeight: 1.2, textTransform: 'uppercase' }}>{title}</div>
+      <div style={{ color: C.mut2, fontSize: 10, marginTop: 4, lineHeight: 1.3 }}>{sub}</div>
+      <div style={{
+        marginTop: 10, width: 28, height: 28, borderRadius: '50%',
+        background: 'rgba(0,0,0,0.4)', border: `1px solid ${themes.border}`,
+        display: 'flex', alignItems: 'center', justifyContent: 'center',
+      }}>
+        <GzIcon name="chevron" size={14} color={themes.icon} />
+      </div>
+    </button>
+  );
+}
+
 function CreditPill({ value, size = 'md' }) {
   const sm = size === 'sm';
   return (
@@ -374,4 +463,4 @@ function BottomNav({ tab, onTab, onMatch }) {
   );
 }
 
-Object.assign(window, { C, HexBallIcon, GzIcon, IconBadge, PageHeader, Banner, ModeCard, RuleList, Btn, Surface, Chip, Avatar, CreditPill, JetonPill, VsBar, TopBar, Section, Seg, Sheet, BottomNav });
+Object.assign(window, { C, HexBallIcon, GzIcon, IconBadge, PageHeader, Banner, ModeCard, RuleList, GemPill, HexFrame, XpBar, NavTile, Btn, Surface, Chip, Avatar, CreditPill, JetonPill, VsBar, TopBar, Section, Seg, Sheet, BottomNav });

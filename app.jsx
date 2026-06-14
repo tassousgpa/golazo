@@ -33,11 +33,13 @@ function App() {
     content = <MarketScreen cardStyle={t.cardStyle} onOpenPack={openPack} onDone={() => { setFlow(null); setTab('club'); }} />;
   } else if (tab === 'home') {
     content = <LeagueHome
+      cardStyle={t.cardStyle}
       onStartMatch={(mid) => startMatch(mid)}
       onSimulate={() => startMatch('m3', { seed: 4242 })}
       onCreateLeague={() => setFlow('create')}
       onOpenMarket={() => setTab('market')}
-      onOpenSquad={() => setTab('club')} />;
+      onOpenSquad={() => setTab('club')}
+      onOpenShop={() => setTab('shop')} />;
   } else if (tab === 'club') {
     content = <ClubScreen cardStyle={t.cardStyle} />;
   } else if (tab === 'market') {
