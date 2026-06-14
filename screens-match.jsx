@@ -82,22 +82,267 @@ function EventRail({ sim, dealt, active, resolvedUpTo }) {
 }
 
 function Scoreboard({ A, B, sA, sB, bump }) {
+  return <PremiumScoreboard A={A} B={B} sA={sA} sB={sB} minute="0'" bump={bump} />;
+}
+
+function MatchTopBar({ onBack, journee = 5, right }) {
+  return (
+    <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '0 16px 10px' }}>
+      <button onClick={onBack} style={{ width: 34, height: 34, borderRadius: 11, border: '1px solid ' + C.line, background: C.surf2, color: C.txt, cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+        <span style={{ display: 'inline-flex', transform: 'rotate(180deg)' }}><GzIcon name="chevron" size={16} color={C.txt} /></span>
+      </button>
+      <div style={{ fontFamily: 'Archivo,sans-serif', fontWeight: 900, fontSize: 12, letterSpacing: 1.5, color: C.mut, textTransform: 'uppercase' }}>Journée {journee}</div>
+      <div style={{ width: 34, display: 'flex', justifyContent: 'flex-end' }}>{right || (
+        <button style={{ width: 34, height: 34, borderRadius: 11, border: '1px solid ' + C.line, background: C.surf2, cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 2, padding: 0 }}>
+          {[0, 1, 2].map(i => <span key={i} style={{ width: 3, height: 3, borderRadius: '50%', background: C.mut }} />)}
+        </button>
+      )}</div>
+    </div>
+  );
+}
+
+function TeamEmblem({ mgr, size = 44 }) {
+  const isGold = mgr.you || mgr.color === '#ff8a1e';
+  return (
+    <div style={{
+      width: size, height: size, borderRadius: isGold ? '50%' : 12, flexShrink: 0,
+      background: isGold
+        ? 'linear-gradient(145deg, rgba(201,146,46,0.35), rgba(138,95,26,0.15))'
+        : `linear-gradient(145deg, ${mgr.color}44, ${mgr.color}18)`,
+      border: `2px solid ${isGold ? C.accL : mgr.color + 'aa'}`,
+      display: 'flex', alignItems: 'center', justifyContent: 'center',
+      boxShadow: isGold ? '0 0 16px rgba(201,146,46,0.35)' : `0 0 12px ${mgr.color}33`,
+    }}>
+      {isGold ? <HexBallIcon size={size * 0.55} /> : <GzIcon name="shield" size={size * 0.45} color={mgr.color} />}
+    </div>
+  );
+}
+
+function PremiumScoreboard({ A, B, sA, sB, minute, bump, live }) {
+  const rankA = rankOf(A.mid);
+  const rankB = rankOf(B.mid);
   const num = (v, color, side) => (
-    <span key={v + side} style={{ fontFamily: 'Archivo,sans-serif', fontWeight: 900, fontSize: 26, color, display: 'inline-block', animation: bump === side ? 'scorePop .5s' : 'none' }}>{v}</span>
+    <span style={{ fontFamily: 'Archivo,sans-serif', fontWeight: 900, fontSize: 32, color, lineHeight: 1, display: 'inline-block', animation: bump === side ? 'scorePop .5s' : 'none' }}>{v}</span>
   );
   return (
-    <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 12 }}>
-      <div style={{ display: 'flex', alignItems: 'center', gap: 7, flex: 1, justifyContent: 'flex-end', minWidth: 0 }}>
-        <span style={{ fontFamily: 'Archivo,sans-serif', fontWeight: 800, fontSize: 13, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{A.mgr.name}</span>
-        <Avatar mgr={A.mgr} size={30} />
+    <div style={{ padding: '0 16px 8px' }}>
+      <div style={{ display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between', gap: 8 }}>
+        <div style={{ flex: 1, display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 6, minWidth: 0 }}>
+          <TeamEmblem mgr={A.mgr} size={42} />
+          <div style={{ fontFamily: 'Archivo,sans-serif', fontWeight: 800, fontSize: 11.5, textAlign: 'center', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis', maxWidth: '100%' }}>{A.mgr.name}</div>
+          <div style={{ fontSize: 10, fontWeight: 800, color: C.accL, fontFamily: 'Archivo,sans-serif' }}>{rankA === 1 ? '1er' : `${rankA}e`}</div>
+        </div>
+        <div style={{ textAlign: 'center', paddingTop: 4 }}>
+          <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 8 }}>
+            {num(sA, A.mgr.color, 'A')}
+            <span style={{ fontFamily: 'Archivo,sans-serif', fontWeight: 900, fontSize: 14, color: C.accL }}>{minute || "0'"}</span>
+            {num(sB, B.mgr.color, 'B')}
+          </div>
+          {live && (
+            <div style={{ display: 'inline-flex', alignItems: 'center', gap: 5, marginTop: 8, padding: '4px 10px', borderRadius: 999, background: 'rgba(0,0,0,0.45)', border: '1px solid rgba(50,200,112,0.35)' }}>
+              <span style={{ width: 6, height: 6, borderRadius: '50%', background: C.lime, boxShadow: '0 0 6px #32c870' }} />
+              <span style={{ fontSize: 9, fontWeight: 800, color: C.lime, fontFamily: 'Archivo,sans-serif', letterSpacing: 0.8 }}>EN DIRECT</span>
+            </div>
+          )}
+        </div>
+        <div style={{ flex: 1, display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 6, minWidth: 0 }}>
+          <TeamEmblem mgr={B.mgr} size={42} />
+          <div style={{ fontFamily: 'Archivo,sans-serif', fontWeight: 800, fontSize: 11.5, textAlign: 'center', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis', maxWidth: '100%' }}>{B.mgr.name}</div>
+          <div style={{ fontSize: 10, fontWeight: 800, color: C.accL, fontFamily: 'Archivo,sans-serif' }}>{rankB === 1 ? '1er' : `${rankB}e`}</div>
+        </div>
       </div>
-      <div style={{ display: 'flex', alignItems: 'center', gap: 7, background: 'rgba(0,0,0,0.4)', padding: '4px 13px', borderRadius: 12 }}>
-        {num(sA, A.mgr.color, 'A')}<span style={{ color: C.mut2, fontWeight: 900 }}>:</span>{num(sB, B.mgr.color, 'B')}
+    </div>
+  );
+}
+
+function MatchTabs({ tab, onChange }) {
+  const tabs = [
+    { k: 'resume', label: 'Résumé' },
+    { k: 'compo', label: 'Compo' },
+    { k: 'stats', label: 'Stats' },
+    { k: 'duel', label: 'Duel' },
+  ];
+  return (
+    <div style={{ display: 'flex', borderBottom: '1px solid ' + C.line, margin: '0 16px 12px' }}>
+      {tabs.map(t => (
+        <button key={t.k} onClick={() => onChange(t.k)} style={{
+          flex: 1, border: 'none', background: 'none', cursor: 'pointer', padding: '10px 4px',
+          fontFamily: 'Archivo,sans-serif', fontWeight: 800, fontSize: 10.5, letterSpacing: 0.6,
+          textTransform: 'uppercase', color: tab === t.k ? C.accL : C.mut2,
+          borderBottom: tab === t.k ? `2px solid ${C.acc}` : '2px solid transparent',
+          marginBottom: -1,
+        }}>{t.label}</button>
+      ))}
+    </div>
+  );
+}
+
+function PitchFormation4({ team, cardStyle, heroId }) {
+  const { gk, outfield } = team.field;
+  const all = [gk, ...outfield];
+  const best = all.reduce((a, b) => (b.ovr > a.ovr ? b : a), all[0]);
+  const hero = heroId || best.id;
+  const spot = (p, left, top, big) => (
+    <div key={p.id} style={{
+      position: 'absolute', left: left + '%', top: top + '%', transform: 'translate(-50%,-50%)',
+      filter: p.id === hero ? 'drop-shadow(0 0 14px rgba(168,85,247,0.65))' : 'none',
+    }}>
+      <div style={{
+        borderRadius: 12, padding: p.id === hero ? 2 : 0,
+        background: p.id === hero ? 'linear-gradient(135deg, rgba(168,85,247,0.5), rgba(201,146,46,0.4))' : 'transparent',
+        boxShadow: p.id === hero ? '0 0 20px rgba(168,85,247,0.4)' : 'none',
+      }}>
+        <PlayerCard player={p} w={big ? 82 : 74} interactive={false} flippable={false} cardStyle={cardStyle} />
       </div>
-      <div style={{ display: 'flex', alignItems: 'center', gap: 7, flex: 1, minWidth: 0 }}>
-        <Avatar mgr={B.mgr} size={30} />
-        <span style={{ fontFamily: 'Archivo,sans-serif', fontWeight: 800, fontSize: 13, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{B.mgr.name}</span>
+    </div>
+  );
+  return (
+    <div style={{
+      position: 'relative', width: '100%', aspectRatio: '1 / 1.12', borderRadius: 18, overflow: 'hidden',
+      background: 'linear-gradient(180deg, rgba(10,20,40,0.85) 0%, rgba(10,20,40,0.3) 18%, #14693e 22%, #0c4a2c 100%)',
+      border: '1px solid rgba(201,146,46,0.2)',
+      boxShadow: 'inset 0 0 50px rgba(0,0,0,0.4), 0 8px 28px rgba(0,0,0,0.45)',
+    }}>
+      <div style={{ position: 'absolute', inset: 0, background: 'repeating-linear-gradient(0deg, rgba(255,255,255,0.04) 0 12%, transparent 12% 24%)' }} />
+      <div style={{ position: 'absolute', top: '18%', left: '50%', transform: 'translateX(-50%)', width: '36%', aspectRatio: '1', borderRadius: '50%', border: '2px solid rgba(255,255,255,0.15)' }} />
+      <div style={{ position: 'absolute', bottom: 0, left: '50%', transform: 'translateX(-50%)', width: '48%', height: '16%', border: '2px solid rgba(255,255,255,0.15)', borderBottom: 'none', borderRadius: '6px 6px 0 0' }} />
+      {outfield[0] && spot(outfield[0], 28, 36, false)}
+      {outfield[1] && spot(outfield[1], 50, 26, true)}
+      {outfield[2] && spot(outfield[2], 72, 36, false)}
+      {spot(gk, 50, 80, false)}
+    </div>
+  );
+}
+
+function HighlightsTimeline({ moments, sim, preview }) {
+  const mins = [12, 24, 38, 45, 58, 68];
+  const events = moments.filter(m => m.scored || preview);
+  if (!events.length && !preview) {
+    return (
+      <Surface style={{ padding: 16, borderColor: 'rgba(201,146,46,0.2)', textAlign: 'center' }}>
+        <div style={{ fontFamily: 'Archivo,sans-serif', fontWeight: 900, fontSize: 11, letterSpacing: 1, color: C.mut2, textTransform: 'uppercase', marginBottom: 6 }}>Temps forts</div>
+        <div style={{ color: C.mut, fontSize: 12.5 }}>Les actions décisives apparaîtront ici pendant le match.</div>
+      </Surface>
+    );
+  }
+  const list = preview ? moments : moments.filter(m => m.scored);
+  return (
+    <Surface style={{ padding: '14px 10px', borderColor: 'rgba(201,146,46,0.25)' }}>
+      <div style={{ fontFamily: 'Archivo,sans-serif', fontWeight: 900, fontSize: 11, letterSpacing: 1, color: C.mut2, textTransform: 'uppercase', marginBottom: 14, paddingLeft: 6 }}>Temps forts</div>
+      <div style={{ position: 'relative' }}>
+        <div style={{ position: 'absolute', left: '50%', top: 4, bottom: 4, width: 2, background: 'rgba(255,255,255,0.1)', transform: 'translateX(-50%)' }} />
+        {list.map((m, i) => {
+          const isA = m.atk === 'A';
+          const mgr = isA ? sim.A.mgr : sim.B.mgr;
+          const min = mins[m.i ?? i] || (12 + i * 11);
+          return (
+            <div key={i} style={{ display: 'flex', justifyContent: isA ? 'flex-start' : 'flex-end', marginBottom: 14, position: 'relative' }}>
+              <div style={{
+                width: '46%', padding: isA ? '0 12px 0 0' : '0 0 0 12px',
+                textAlign: isA ? 'right' : 'left',
+              }}>
+                <div style={{ fontFamily: 'Archivo,sans-serif', fontWeight: 900, fontSize: 12, color: C.accL, letterSpacing: 0.3 }}>{m.atkPlayer.name.split(' ').pop().toUpperCase()} {min}'</div>
+                {m.scored && <div style={{ color: C.mut2, fontSize: 10, marginTop: 2 }}>Passe de {m.atkPlayer.name.split(' ')[0]}</div>}
+                <div style={{
+                  display: 'inline-flex', alignItems: 'center', gap: 6, marginTop: 6,
+                  padding: '5px 8px', borderRadius: 8, background: 'rgba(0,0,0,0.35)',
+                  border: `1px solid ${mgr.color}55`,
+                }}>
+                  <div style={{ width: 26, height: 26, borderRadius: 7, background: 'rgba(201,146,46,0.15)', border: '1px solid rgba(201,146,46,0.4)', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+                    <GzIcon name={m.scored ? 'ball' : m.icon} size={14} color={m.scored ? C.accL : C.mut} />
+                  </div>
+                  <span style={{ fontSize: 10, color: C.mut, fontWeight: 700 }}>{m.scored ? 'But' : m.label}</span>
+                </div>
+              </div>
+              <div style={{
+                position: 'absolute', left: '50%', top: 8, transform: 'translateX(-50%)',
+                width: 8, height: 8, borderRadius: '50%', background: m.scored ? C.acc : C.mut2,
+                border: '2px solid #0c0f1c', boxShadow: m.scored ? '0 0 8px rgba(201,146,46,0.6)' : 'none',
+              }} />
+            </div>
+          );
+        })}
       </div>
+    </Surface>
+  );
+}
+
+function MatchStatsPanel({ A, B }) {
+  const keys = ['vit', 'tir', 'dri', 'pas', 'phy', 'def'];
+  return (
+    <Surface style={{ padding: 14 }}>
+      {keys.map(k => (
+        <div key={k} style={{ marginBottom: 12 }}>
+          <VsBar a={Math.round(A.agg[k])} b={Math.round(B.agg[k])} aLabel={STAT_LABEL[k]} bLabel="" aColor={A.mgr.color} bColor={B.mgr.color} height={8} />
+        </div>
+      ))}
+    </Surface>
+  );
+}
+
+function MatchDuelPanel({ A, B }) {
+  return (
+    <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
+      <Surface style={{ padding: 16, display: 'flex', alignItems: 'center', justifyContent: 'space-around' }}>
+        <div style={{ textAlign: 'center' }}>
+          <TeamEmblem mgr={A.mgr} size={48} />
+          <div style={{ fontFamily: 'Archivo,sans-serif', fontWeight: 900, fontSize: 28, color: A.mgr.color, marginTop: 8 }}>{A.agg.ovr}</div>
+          <div style={{ color: C.mut2, fontSize: 10, fontWeight: 800 }}>OVR</div>
+        </div>
+        <div style={{ fontFamily: 'Archivo,sans-serif', fontWeight: 900, fontSize: 22, color: C.acc }}>VS</div>
+        <div style={{ textAlign: 'center' }}>
+          <TeamEmblem mgr={B.mgr} size={48} />
+          <div style={{ fontFamily: 'Archivo,sans-serif', fontWeight: 900, fontSize: 28, color: B.mgr.color, marginTop: 8 }}>{B.agg.ovr}</div>
+          <div style={{ color: C.mut2, fontSize: 10, fontWeight: 800 }}>OVR</div>
+        </div>
+      </Surface>
+      <Surface style={{ padding: 12 }}>
+        {[
+          ['Tireur penalty', A.roles.penalty, B.roles.penalty],
+          ['Attaquant 1v1', A.roles.duelAtt, B.roles.duelAtt],
+          ['Défenseur 1v1', A.roles.duelDef, B.roles.duelDef],
+        ].map(([label, pa, pb], i) => (
+          <div key={i} style={{ display: 'flex', alignItems: 'center', gap: 10, padding: '8px 0', borderBottom: i < 2 ? '1px solid ' + C.line : 'none' }}>
+            <div style={{ flex: 1, textAlign: 'right', fontFamily: 'Archivo,sans-serif', fontWeight: 800, fontSize: 12 }}>{pa.name.split(' ').pop()}</div>
+            <div style={{ fontSize: 10, color: C.mut2, fontWeight: 800, width: 72, textAlign: 'center' }}>{label}</div>
+            <div style={{ flex: 1, fontFamily: 'Archivo,sans-serif', fontWeight: 800, fontSize: 12 }}>{pb.name.split(' ').pop()}</div>
+          </div>
+        ))}
+      </Surface>
+    </div>
+  );
+}
+
+function MatchFooter({ rating, points, cta, onCta, ctaKind = 'primary' }) {
+  return (
+    <div style={{ padding: '12px 16px 20px', background: 'linear-gradient(to top, rgba(12,15,28,0.98), transparent)' }}>
+      <div style={{ display: 'flex', gap: 10, marginBottom: 12 }}>
+        <Surface style={{ flex: 1, padding: '10px 12px', textAlign: 'center' }}>
+          <div style={{ fontSize: 9, fontWeight: 800, color: C.mut2, letterSpacing: 0.6, fontFamily: 'Archivo,sans-serif', textTransform: 'uppercase' }}>Notes équipe</div>
+          <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 5, marginTop: 4 }}>
+            <GzIcon name="star" size={14} color={C.accL} />
+            <span style={{ fontFamily: 'Archivo,sans-serif', fontWeight: 900, fontSize: 20, color: C.accL }}>{rating}</span>
+          </div>
+        </Surface>
+        <Surface style={{ flex: 1, padding: '10px 12px', textAlign: 'center' }}>
+          <div style={{ fontSize: 9, fontWeight: 800, color: C.mut2, letterSpacing: 0.6, fontFamily: 'Archivo,sans-serif', textTransform: 'uppercase' }}>Points gagnés</div>
+          <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 5, marginTop: 4 }}>
+            <GzIcon name="trophy" size={14} color={C.lime} />
+            <span style={{ fontFamily: 'Archivo,sans-serif', fontWeight: 900, fontSize: 20, color: C.lime }}>{points}</span>
+          </div>
+        </Surface>
+      </div>
+      <Btn full size="lg" kind={ctaKind} onClick={onCta}>{cta}</Btn>
+    </div>
+  );
+}
+
+function CountdownPill() {
+  return (
+    <div style={{ margin: '0 16px 10px', padding: '8px 14px', borderRadius: 999, background: 'rgba(0,0,0,0.4)', border: '1px solid rgba(255,255,255,0.08)', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 8 }}>
+      <span style={{ fontSize: 9, fontWeight: 800, color: C.mut2, letterSpacing: 0.8, fontFamily: 'Archivo,sans-serif', textTransform: 'uppercase' }}>Prochain match dans</span>
+      <GzIcon name="calendar" size={12} color={C.accL} />
+      <span style={{ fontSize: 11, fontWeight: 800, color: C.accL, fontFamily: 'Archivo,sans-serif' }}>2j 14h 32m</span>
     </div>
   );
 }
@@ -134,13 +379,13 @@ function Theater({ m, micro, atkMgr, defMgr }) {
         animation: 'scorePop .4s',
       }}>
         <div style={{ width: 44, height: 44, borderRadius: 10, background: `radial-gradient(circle, ${EVENT_COLORS[m.type]}28, ${EVENT_COLORS[m.type]}0a)`, border: `1.5px solid ${EVENT_COLORS[m.type]}55`, display: 'flex', alignItems: 'center', justifyContent: 'center', boxShadow: `0 0 16px ${EVENT_COLORS[m.type]}44`, flexShrink: 0 }}>
-          <span style={{ fontSize: 22, filter: `drop-shadow(0 0 7px ${EVENT_COLORS[m.type]})` }}>{m.icon}</span>
+          <GzIcon name={m.icon} size={22} color={EVENT_COLORS[m.type]} />
         </div>
         <div style={{ flex: 1 }}>
           <div style={{ fontFamily: 'Archivo,sans-serif', fontWeight: 900, fontSize: 15, color: '#fff', letterSpacing: 0.4, textShadow: `0 0 12px ${EVENT_COLORS[m.type]}` }}>{m.label.toUpperCase()}</div>
           <div style={{ color: C.mut, fontSize: 11 }}><b style={{ color: atkMgr.color }}>{atkMgr.name}</b> attaque</div>
         </div>
-        <div style={{ width: 36, height: 36, borderRadius: '50%', background: `${atkMgr.color}22`, border: `1.5px solid ${atkMgr.color}66`, display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 17, flexShrink: 0 }}>{atkMgr.avatar}</div>
+        <div style={{ width: 36, height: 36, borderRadius: '50%', background: `${atkMgr.color}22`, border: `1.5px solid ${atkMgr.color}66`, display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}><Avatar mgr={atkMgr} size={28} /></div>
       </div>
 
       {/* duel area */}
@@ -247,7 +492,7 @@ function MatchFlow({ midA, midB, replay, seed, onExit }) {
   const sA = sim.moments.slice(0, resolvedUpTo).filter(x => x.scored && x.atk === 'A').length;
   const sB = sim.moments.slice(0, resolvedUpTo).filter(x => x.scored && x.atk === 'B').length;
 
-  if (phase === 'kickoff') return <Kickoff A={A} B={B} onStart={() => { setAi(0); setPhase('deal'); }} onExit={onExit} />;
+  if (phase === 'kickoff') return <Kickoff A={A} B={B} sim={sim} onStart={() => { setAi(0); setPhase('deal'); }} onExit={onExit} />;
   if (phase === 'result') return <ResultScreen sim={sim} sA={sim.scoreA} sB={sim.scoreB} replay={replay} onExit={onExit} onReplay={() => { setAi(0); setPhase('deal'); }} />;
 
   const m = phase === 'play' ? sim.moments[ai] : null;
@@ -260,18 +505,17 @@ function MatchFlow({ midA, midB, replay, seed, onExit }) {
     : (!m.penalty && geq(micro, 'duel')) ? m.comments.mid
     : m.comments.reveal;
 
+  const minute = phase === 'play' ? `${12 + ai * 9}'` : "0'";
+
   return (
     <div style={{ height: '100%', display: 'flex', flexDirection: 'column', paddingTop: 54 }} onClick={phase === 'play' ? skip : undefined}>
-      {/* top bar */}
-      <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '0 16px 8px' }} onClick={e => e.stopPropagation()}>
-        <button onClick={onExit} style={{ width: 34, height: 34, borderRadius: 11, border: '1px solid ' + C.line, background: C.surf2, color: C.txt, fontSize: 15, cursor: 'pointer' }}>✕</button>
-        {replay && <Chip color={C.cyan}>⏪ REPLAY</Chip>}
-        {phase === 'play' && <button onClick={skip} style={{ padding: '7px 13px', borderRadius: 11, border: '1px solid ' + C.line, background: C.surf2, color: C.mut, fontSize: 12, fontWeight: 800, fontFamily: 'Archivo,sans-serif', cursor: 'pointer' }}>Passer ⏭</button>}
-      </div>
-
+      <MatchTopBar onBack={onExit} right={phase === 'play' ? (
+        <button onClick={e => { e.stopPropagation(); skip(); }} style={{ padding: '7px 11px', borderRadius: 11, border: '1px solid ' + C.line, background: C.surf2, color: C.mut, fontSize: 11, fontWeight: 800, fontFamily: 'Archivo,sans-serif', cursor: 'pointer' }}>Passer</button>
+      ) : replay ? <Chip color={C.cyan}>Replay</Chip> : null} />
+      <PremiumScoreboard A={A} B={B} sA={sA} sB={sB} minute={minute} bump={bump} live={phase === 'play'} />
+      {phase !== 'play' && <CountdownPill />}
       <div style={{ padding: '0 16px' }}>
-        <Scoreboard A={A} B={B} sA={sA} sB={sB} bump={bump} />
-        <div style={{ marginTop: 10 }}><EventRail sim={sim} dealt={dealt} active={phase === 'play' ? ai : -1} resolvedUpTo={resolvedUpTo} /></div>
+        <EventRail sim={sim} dealt={dealt} active={phase === 'play' ? ai : -1} resolvedUpTo={resolvedUpTo} />
       </div>
 
       {phase === 'deal' ? (
@@ -295,10 +539,10 @@ function MatchFlow({ midA, midB, replay, seed, onExit }) {
                     </div>
                     <div style={{ position: 'absolute', inset: 0, backfaceVisibility: 'hidden', transform: 'rotateY(180deg)', borderRadius: 10, overflow: 'hidden', background: `linear-gradient(155deg,rgba(18,14,30,0.96),rgba(8,6,18,0.98))`, border: `1.5px solid ${ec}55`, display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'space-around', padding: '8px 6px 6px' }}>
                       <div style={{ position: 'absolute', inset: 0, background: `radial-gradient(circle at 50% 45%, ${ec}18, transparent 62%)` }} />
-                      <span style={{ fontSize: 28, filter: `drop-shadow(0 0 9px ${ec})`, position: 'relative', zIndex: 2 }}>{m2.icon}</span>
+                      <GzIcon name={m2.icon} size={26} color={ec} />
                       <div style={{ textAlign: 'center', position: 'relative', zIndex: 2 }}>
                         <div style={{ fontFamily: 'Archivo,sans-serif', fontWeight: 900, fontSize: 9, color: '#fff', letterSpacing: .6 }}>{m2.label.toUpperCase()}</div>
-                        <div style={{ fontSize: 8, color: mgr2.color, fontWeight: 800, marginTop: 1 }}>{mgr2.avatar} {mgr2.name}</div>
+                        <div style={{ fontSize: 8, color: mgr2.color, fontWeight: 800, marginTop: 1, display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 3 }}><Avatar mgr={mgr2} size={14} /> {mgr2.name}</div>
                       </div>
                     </div>
                   </div>
@@ -306,7 +550,7 @@ function MatchFlow({ midA, midB, replay, seed, onExit }) {
               );
             })}
           </div>
-          {dealt >= 6 && <div style={{ fontFamily: 'Archivo,sans-serif', fontWeight: 900, fontSize: 17, color: C.acc, animation: 'scorePop .5s' }}>⚡ Que le match commence !</div>}
+          {dealt >= 6 && <div style={{ fontFamily: 'Archivo,sans-serif', fontWeight: 900, fontSize: 17, color: C.acc, animation: 'scorePop .5s', display: 'flex', alignItems: 'center', gap: 6 }}><GzIcon name="bolt" size={18} color={C.accL} /> Que le match commence !</div>}
         </div>
       ) : (
         <div style={{ flex: 1, display: 'flex', flexDirection: 'column', padding: '4px 16px 12px', minHeight: 0 }}>
@@ -319,118 +563,95 @@ function MatchFlow({ midA, midB, replay, seed, onExit }) {
   );
 }
 
-function Kickoff({ A, B, onStart, onExit }) {
+function Kickoff({ A, B, sim, onStart, onExit }) {
+  const [tab, setTab] = React.useState('compo');
+  const youTeam = A.mgr.you ? A : B;
+  const cardStyle = window.__cardStyle || 'blason';
+  const rating = (youTeam.agg.ovr / 10 + 0.55).toFixed(1).replace('.', ',');
+
+  const tabContent = {
+    resume: <HighlightsTimeline moments={sim.moments} sim={sim} />,
+    compo: <PitchFormation4 team={youTeam} cardStyle={cardStyle} />,
+    stats: <MatchStatsPanel A={A} B={B} />,
+    duel: <MatchDuelPanel A={A} B={B} />,
+  };
+
   return (
-    <div style={{ height: '100%', display: 'flex', flexDirection: 'column', paddingTop: 60, position: 'relative' }}>
-      <div style={{ position: 'absolute', top: 56, left: 16, zIndex: 5 }}>
-        <button onClick={onExit} style={{ width: 36, height: 36, borderRadius: 12, border: '1px solid ' + C.line, background: C.surf2, color: C.txt, fontSize: 17, cursor: 'pointer' }}>✕</button>
+    <div style={{ height: '100%', display: 'flex', flexDirection: 'column', paddingTop: 54 }}>
+      <MatchTopBar onBack={onExit} />
+      <PremiumScoreboard A={A} B={B} sA={0} sB={0} minute="0'" />
+      <CountdownPill />
+      <MatchTabs tab={tab} onChange={setTab} />
+      <div style={{ flex: 1, overflowY: 'auto', padding: '0 16px', minHeight: 0 }}>
+        {tabContent[tab]}
       </div>
-      <div style={{ position: 'absolute', inset: 0, background: 'radial-gradient(circle at 50% 30%, rgba(255,138,30,0.2), transparent 60%)' }} />
-      <div style={{ textAlign: 'center', position: 'relative', zIndex: 2, padding: '0 24px' }}>
-        <Chip color={C.acc} solid>JOURNÉE 5 · POULE A</Chip>
-        <div style={{ fontFamily: 'Archivo,sans-serif', fontWeight: 900, fontSize: 26, marginTop: 14 }}>Le match va commencer</div>
-      </div>
-      <div style={{ flex: 1, display: 'flex', alignItems: 'center', justifyContent: 'space-around', position: 'relative', zIndex: 2, padding: '0 20px' }}>
-        {[A, B].map(T => (
-          <div key={T.mid} style={{ textAlign: 'center' }}>
-            <Avatar mgr={T.mgr} size={76} />
-            <div style={{ fontFamily: 'Archivo,sans-serif', fontWeight: 900, fontSize: 18, marginTop: 10 }}>{T.mgr.name}</div>
-            <div style={{ color: C.mut, fontSize: 12 }}>OVR {T.agg.ovr}</div>
-          </div>
-        ))}
-        <div style={{ position: 'absolute', left: '50%', top: '50%', transform: 'translate(-50%,-50%)', fontFamily: 'Archivo,sans-serif', fontWeight: 900, fontSize: 40, color: C.acc, textShadow: '0 0 24px rgba(255,138,30,0.6)' }}>VS</div>
-      </div>
-      <div style={{ padding: '0 24px 34px', position: 'relative', zIndex: 2 }}>
-        <Btn full size="lg" onClick={onStart}><GzIcon name="ball" size={18} color="#1a0e02" /> Démarrer le match</Btn>
-        <div style={{ textAlign: 'center', color: C.mut2, fontSize: 11.5, marginTop: 10 }}>Si personne ne démarre dans 30 min, le match se lance tout seul en arrière-plan.</div>
-      </div>
+      <MatchFooter
+        rating={rating}
+        points="—"
+        cta={<><GzIcon name="ball" size={18} color="#1a0e02" /> Voir le match</>}
+        onCta={onStart}
+      />
     </div>
   );
 }
 
 function ResultScreen({ sim, sA, sB, replay, onExit, onReplay }) {
+  const [tab, setTab] = React.useState('resume');
   const you = sim.A.mgr.you ? 'A' : 'B';
   const myScore = you === 'A' ? sA : sB, oppScore = you === 'A' ? sB : sA;
   const win = myScore > oppScore, draw = myScore === oppScore;
   const pts = win ? 3 : draw ? 1 : 0;
   const jetons = win ? 25 : draw ? 12 : 6;
+  const youTeam = you === 'A' ? sim.A : sim.B;
+  const cardStyle = window.__cardStyle || 'blason';
   const scorers = sim.moments.filter(m => m.scored).map(m => m.atkPlayer);
-  const mvp = scorers[0] || sim.A.field.outfield[0];
-  const outcomeColor = win ? '#22d47a' : draw ? C.gold : '#e8123b';
-  const outcomeLabel = win ? 'VICTOIRE !' : draw ? 'MATCH NUL' : 'DÉFAITE';
+  const mvp = scorers[0] || youTeam.field.outfield[0];
+  const rating = (youTeam.agg.ovr / 10 + (win ? 1.2 : draw ? 0.4 : -0.3)).toFixed(1).replace('.', ',');
+  const outcomeColor = win ? C.lime : draw ? C.gold : '#e8123b';
+  const outcomeLabel = win ? 'Victoire' : draw ? 'Match nul' : 'Défaite';
+
+  const tabContent = {
+    resume: (
+      <div style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
+        <Surface style={{ padding: 14, textAlign: 'center', background: `linear-gradient(135deg, ${outcomeColor}18, rgba(0,0,0,0.2))`, borderColor: outcomeColor + '44' }}>
+          <div style={{ fontFamily: 'Archivo,sans-serif', fontWeight: 900, fontSize: 22, color: outcomeColor, letterSpacing: 0.5 }}>{outcomeLabel.toUpperCase()}</div>
+          {replay && <div style={{ marginTop: 6 }}><Chip color={C.cyan}>Replay terminé</Chip></div>}
+        </Surface>
+        <HighlightsTimeline moments={sim.moments} sim={sim} />
+        <Surface style={{ padding: 12, display: 'flex', alignItems: 'center', gap: 12 }}>
+          <PlayerCard player={mvp} w={72} interactive={false} flippable={false} cardStyle={cardStyle} />
+          <div>
+            <Chip color={C.gold}><GzIcon name="star" size={12} color={C.gold} /> Homme du match</Chip>
+            <div style={{ fontFamily: 'Archivo,sans-serif', fontWeight: 900, fontSize: 15, marginTop: 6 }}>{mvp.name}</div>
+          </div>
+        </Surface>
+      </div>
+    ),
+    compo: <PitchFormation4 team={youTeam} cardStyle={cardStyle} heroId={mvp.id} />,
+    stats: <MatchStatsPanel A={sim.A} B={sim.B} />,
+    duel: <MatchDuelPanel A={sim.A} B={sim.B} />,
+  };
 
   return (
-    <div style={{ height: '100%', overflowY: 'auto', paddingTop: 60, paddingBottom: 30 }}>
-      {/* hero banner */}
-      <div style={{ position: 'relative', overflow: 'hidden', padding: '24px 24px 20px', textAlign: 'center', marginBottom: 4 }}>
-        <div style={{ position: 'absolute', inset: 0, background: `radial-gradient(ellipse at 50% 0%, ${outcomeColor}22, transparent 65%)` }} />
-        {replay && <div style={{ position: 'relative', marginBottom: 8 }}><Chip color={C.cyan}>⏪ REPLAY TERMINÉ</Chip></div>}
-        <div style={{ fontFamily: 'Archivo,sans-serif', fontWeight: 900, fontSize: 40, letterSpacing: 1, color: outcomeColor, textShadow: `0 0 24px ${outcomeColor}88`, lineHeight: 1, position: 'relative' }}>{outcomeLabel}</div>
-        <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 20, margin: '18px 0 4px', position: 'relative' }}>
-          <div style={{ textAlign: 'center' }}>
-            <div style={{ width: 54, height: 54, borderRadius: '50%', background: `${sim.A.mgr.color}22`, border: `2px solid ${sim.A.mgr.color}`, display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 26, margin: '0 auto' }}>{sim.A.mgr.avatar}</div>
-            <div style={{ fontFamily: 'Archivo,sans-serif', fontWeight: 800, fontSize: 12, marginTop: 5 }}>{sim.A.mgr.name}</div>
-          </div>
-          <div style={{ fontFamily: 'Archivo,sans-serif', fontWeight: 900 }}>
-            <span style={{ fontSize: 52, color: sim.A.mgr.color, lineHeight: 1 }}>{sA}</span>
-            <span style={{ fontSize: 28, color: C.mut2, margin: '0 6px' }}>:</span>
-            <span style={{ fontSize: 52, color: sim.B.mgr.color, lineHeight: 1 }}>{sB}</span>
-          </div>
-          <div style={{ textAlign: 'center' }}>
-            <div style={{ width: 54, height: 54, borderRadius: '50%', background: `${sim.B.mgr.color}22`, border: `2px solid ${sim.B.mgr.color}`, display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 26, margin: '0 auto' }}>{sim.B.mgr.avatar}</div>
-            <div style={{ fontFamily: 'Archivo,sans-serif', fontWeight: 800, fontSize: 12, marginTop: 5 }}>{sim.B.mgr.name}</div>
-          </div>
+    <div style={{ height: '100%', display: 'flex', flexDirection: 'column', paddingTop: 54 }}>
+      <MatchTopBar onBack={onExit} />
+      <PremiumScoreboard A={sim.A} B={sim.B} sA={sA} sB={sB} minute="FT" />
+      <MatchTabs tab={tab} onChange={setTab} />
+      <div style={{ flex: 1, overflowY: 'auto', padding: '0 16px', minHeight: 0 }}>
+        {tabContent[tab]}
+      </div>
+      <MatchFooter
+        rating={rating}
+        points={replay ? '—' : `+${pts} · ${jetons} jetons`}
+        cta={replay ? 'Retour à la ligue' : 'Revoir le match'}
+        ctaKind={replay ? 'primary' : 'ghost'}
+        onCta={replay ? onExit : onReplay}
+      />
+      {!replay && (
+        <div style={{ padding: '0 16px 16px' }}>
+          <Btn full size="lg" onClick={onExit}>Retour à la ligue</Btn>
         </div>
-      </div>
-
-      <div style={{ padding: '0 18px' }}>
-        {!replay && (
-          <Surface style={{ padding: 16, marginBottom: 14, background: 'linear-gradient(135deg, rgba(255,138,30,0.14), rgba(74,214,255,0.1))' }}>
-            <div style={{ fontFamily: 'Archivo,sans-serif', fontWeight: 900, fontSize: 14, marginBottom: 12 }}>Récompenses</div>
-            <div style={{ display: 'flex', gap: 12 }}>
-              <div style={{ flex: 1, textAlign: 'center', background: 'rgba(0,0,0,0.25)', borderRadius: 14, padding: 12 }}>
-                <div style={{ fontFamily: 'Archivo,sans-serif', fontWeight: 900, fontSize: 26, color: C.acc }}>+{pts}</div>
-                <div style={{ color: C.mut, fontSize: 11, fontWeight: 700 }}>POINTS CLASSEMENT</div>
-              </div>
-              <div style={{ flex: 1, textAlign: 'center', background: 'rgba(0,0,0,0.25)', borderRadius: 14, padding: 12 }}>
-                <div style={{ fontFamily: 'Archivo,sans-serif', fontWeight: 900, fontSize: 26, color: C.cyan }}>+{jetons}</div>
-                <div style={{ color: C.mut, fontSize: 11, fontWeight: 700, display: 'flex', alignItems: 'center', gap: 4 }}><GzIcon name="jeton" size={12} color={C.cyan} /> JETONS</div>
-              </div>
-            </div>
-          </Surface>
-        )}
-
-        <Surface style={{ padding: 14, marginBottom: 14, display: 'flex', alignItems: 'center', gap: 14 }}>
-          <PlayerCard player={mvp} w={84} interactive={false} flippable={false} />
-          <div>
-            <Chip color={C.gold}><GzIcon name="star" size={12} color={C.gold} /> HOMME DU MATCH</Chip>
-            <div style={{ fontFamily: 'Archivo,sans-serif', fontWeight: 900, fontSize: 17, marginTop: 8 }}>{mvp.name}</div>
-            <div style={{ color: C.mut, fontSize: 12.5, marginTop: 2 }}>Décisif sur l'action clé du match</div>
-          </div>
-        </Surface>
-
-        <Section title="Résumé des actions" />
-        <Surface style={{ overflow: 'hidden' }}>
-          {sim.moments.map((m, i) => {
-            const mgr = m.atk === 'A' ? sim.A.mgr : sim.B.mgr;
-            return (
-              <div key={i} style={{ display: 'flex', alignItems: 'center', gap: 11, padding: '10px 13px', borderBottom: i < 5 ? '1px solid ' + C.line : 'none' }}>
-                <span style={{ fontSize: 17, width: 22, textAlign: 'center' }}>{m.icon}</span>
-                <div style={{ flex: 1 }}>
-                  <div style={{ fontFamily: 'Archivo,sans-serif', fontWeight: 800, fontSize: 12.5 }}>{m.label} · <span style={{ color: mgr.color }}>{mgr.name}</span></div>
-                  <div style={{ color: C.mut2, fontSize: 11 }}>{m.atkPlayer.name.split(' ').pop()} · occasion {m.duelPct}%</div>
-                </div>
-                {m.scored ? <Chip color={C.lime} solid>BUT</Chip> : <Chip color={C.mut}>—</Chip>}
-              </div>
-            );
-          })}
-        </Surface>
-
-        <div style={{ height: 18 }} />
-        <Btn full size="lg" kind="ghost" onClick={onReplay}>⏪ Revoir le match (replay)</Btn>
-        <div style={{ height: 10 }} />
-        <Btn full size="lg" onClick={onExit}>Retour à la ligue</Btn>
-      </div>
+      )}
     </div>
   );
 }
