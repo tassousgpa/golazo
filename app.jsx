@@ -13,8 +13,9 @@ function App() {
   const [auth, setAuth] = useState(false);
   const [tab, setTab] = useState('home');
   const [flow, setFlow] = useState(null);      // null | 'create' | 'createMarket'
-  const [match, setMatch] = useState(null);    // {midA, midB, replay, seed}
+  const [match, setMatch] = useState(null);    // {midA, midB, replay, seed, bonusA}
   const [packOpen, setPackOpen] = useState(null); // {tier, mode, onComplete}
+  const [plannedBonus, setPlannedBonus] = useState(() => loadPlannedBonus());
 
   const openPack = (tier, mode, onComplete) => setPackOpen({ tier, mode, onComplete });
   const closePack = () => setPackOpen(null);
@@ -23,8 +24,16 @@ function App() {
     ? 'radial-gradient(120% 80% at 50% 0%, #090c18, #04060f 70%)'
     : 'radial-gradient(120% 80% at 50% 0%, #111a2e, #0c0f1c 65%)';
 
-  const startMatch = (oppMid, opts = {}) => setMatch({ midA: 'm1', midB: oppMid, ...opts });
+  const startMatch = (oppMid, opts = {}) => setMatch({
+    midA: 'm1', midB: oppMid,
+    bonusA: opts.bonusA !== undefined ? opts.bonusA : plannedBonus,
+    ...opts,
+  });
   const goTab = (k) => { setFlow(null); setTab(k); };
+  const saveBonusPlan = (bonus) => {
+    savePlannedBonus(bonus);
+    setPlannedBonus(bonus);
+  };
 
   let content;
   if (flow === 'create') {
@@ -34,6 +43,8 @@ function App() {
   } else if (tab === 'home') {
     content = <LeagueHome
       cardStyle={t.cardStyle}
+      plannedBonus={plannedBonus}
+      onPlanBonus={saveBonusPlan}
       onStartMatch={(mid) => startMatch(mid)}
       onSimulate={() => startMatch('m3', { seed: 4242 })}
       onCreateLeague={() => setFlow('create')}

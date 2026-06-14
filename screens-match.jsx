@@ -1,20 +1,13 @@
 // screens-match.jsx — CINEMATIC auto-playing match: pack-opening reveals,
 // per-action micro-steps, animated stats, live commentary, ~45-60s, deterministic replay.
 
-const ORDER = ['intro', 'cards', 'stats', 'prob', 'suspense', 'duel', 'shot', 'keeper', 'outcome'];
+const ORDER = ['intro', 'cards', 'suspense', 'duel', 'keeper', 'outcome'];
 const geq = (micro, s) => ORDER.indexOf(micro) >= ORDER.indexOf(s);
 
-const MATCH_MICRO_LABELS = {
-  intro: 'Préparation', cards: 'Joueurs en jeu', stats: 'Calcul des stats',
-  prob: 'Probabilité', suspense: 'Suspense…', duel: 'Duel', shot: 'Frappe',
-  keeper: 'Gardien', outcome: 'Résultat',
-};
-
 function seqFor(m) {
-  const base = [['intro', 850], ['cards', 800], ['stats', 1200], ['prob', 900], ['suspense', 520]];
-  if (m.penalty) return [...base, ['keeper', 900], ['outcome', 1450]];
-  if (m.won) return [...base, ['duel', 680], ['shot', 460], ['keeper', 880], ['outcome', 1500]];
-  return [...base, ['duel', 800], ['outcome', 1450]];
+  if (m.penalty) return [['intro', 500], ['cards', 700], ['keeper', 1000], ['outcome', 1300]];
+  if (m.type === 'duel') return [['intro', 450], ['cards', 650], ['duel', 1100], ['outcome', 1200]];
+  return [['intro', 450], ['cards', 750], ['suspense', 650], ['outcome', 1100]];
 }
 
 const easeOut = (p) => 1 - Math.pow(1 - p, 3);
@@ -562,7 +555,7 @@ function MatchDuelPanel({ A, B }) {
   );
 }
 
-function MatchFooter({ rating, points, cta, onCta, ctaKind = 'primary' }) {
+function MatchFooter({ rating, points, pointsLabel = 'Bonus actif', pointsIcon = 'star', pointsColor = C.accL, cta, onCta, ctaKind = 'primary' }) {
   return (
     <div style={{ padding: '12px 16px 20px', background: 'linear-gradient(to top, rgba(12,15,28,0.98), transparent)' }}>
       <div style={{ display: 'flex', gap: 10, marginBottom: 12 }}>
@@ -574,10 +567,10 @@ function MatchFooter({ rating, points, cta, onCta, ctaKind = 'primary' }) {
           </div>
         </Surface>
         <Surface style={{ flex: 1, padding: '10px 12px', textAlign: 'center' }}>
-          <div style={{ fontSize: 9, fontWeight: 800, color: C.mut2, letterSpacing: 0.6, fontFamily: 'Archivo,sans-serif', textTransform: 'uppercase' }}>Points gagnés</div>
+          <div style={{ fontSize: 9, fontWeight: 800, color: C.mut2, letterSpacing: 0.6, fontFamily: 'Archivo,sans-serif', textTransform: 'uppercase' }}>{pointsLabel}</div>
           <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 5, marginTop: 4 }}>
-            <GzIcon name="trophy" size={14} color={C.lime} />
-            <span style={{ fontFamily: 'Archivo,sans-serif', fontWeight: 900, fontSize: 20, color: C.lime }}>{points}</span>
+            <GzIcon name={pointsIcon} size={14} color={pointsColor} />
+            <span style={{ fontFamily: 'Archivo,sans-serif', fontWeight: 900, fontSize: pointsLabel === 'Points gagnés' ? 20 : 13, color: pointsColor }}>{points}</span>
           </div>
         </Surface>
       </div>
@@ -596,85 +589,194 @@ function CountdownPill() {
   );
 }
 
-// ─── the action theater ───
-function Theater({ m, micro, atkMgr, defMgr }) {
+function PitchShell({ children, highlight }) {
+  return (
+    <div style={{
+      position: 'relative', width: '100%', aspectRatio: '1 / 1.05', borderRadius: 18, overflow: 'hidden',
+      background: 'linear-gradient(180deg, rgba(10,20,40,0.85) 0%, rgba(10,20,40,0.3) 18%, #14693e 22%, #0c4a2c 100%)',
+      border: '1px solid rgba(201,146,46,0.2)',
+      boxShadow: highlight ? `inset 0 0 60px ${highlight}22, 0 8px 28px rgba(0,0,0,0.45)` : 'inset 0 0 50px rgba(0,0,0,0.4), 0 8px 28px rgba(0,0,0,0.45)',
+    }}>
+      <div style={{ position: 'absolute', inset: 0, background: 'repeating-linear-gradient(0deg, rgba(255,255,255,0.04) 0 12%, transparent 12% 24%)' }} />
+      <div style={{ position: 'absolute', top: '18%', left: '50%', transform: 'translateX(-50%)', width: '36%', aspectRatio: '1', borderRadius: '50%', border: '2px solid rgba(255,255,255,0.15)' }} />
+      <div style={{ position: 'absolute', bottom: 0, left: '50%', transform: 'translateX(-50%)', width: '48%', height: '16%', border: '2px solid rgba(255,255,255,0.15)', borderBottom: 'none', borderRadius: '6px 6px 0 0' }} />
+      {children}
+    </div>
+  );
+}
+
+function PitchCardSpot({ player, left, top, w, cardStyle, dim, anim, glow }) {
+  if (!player) return null;
+  return (
+    <div style={{
+      position: 'absolute', left: left + '%', top: top + '%', transform: 'translate(-50%,-50%)',
+      opacity: dim ? 0.28 : 1, transition: 'opacity .45s, transform .45s',
+      animation: anim || 'none', filter: glow ? 'drop-shadow(0 0 14px rgba(201,146,46,0.7))' : 'none',
+    }}>
+      <PlayerCard player={player} w={w} interactive={false} flippable={false} cardStyle={cardStyle} glowPulse={glow} />
+    </div>
+  );
+}
+
+function MatchPitchScene({ m, micro, atkTeam, defTeam, atkMgr, defMgr, cardStyle }) {
   const showCards = geq(micro, 'cards');
-  const showStats = geq(micro, 'stats');
-  const showProb = geq(micro, 'prob');
+  const clash = micro === 'duel' || micro === 'keeper';
   const suspense = micro === 'suspense';
-  const keeperStage = geq(micro, 'keeper');
   const outcome = micro === 'outcome';
-  const clash = geq(micro, 'duel');
+  const type = m.type;
+  const ec = EVENT_COLORS[type] || C.acc;
+  const wSmall = 48, wMed = 58, wBig = 86;
+  const atkGlow = outcome && m.scored;
+  const defGlow = outcome && !m.scored && (m.penalty || m.won);
+  const clashAnim = clash ? 'duelClash .55s ease-in-out infinite' : undefined;
+  const winAnim = outcome ? (atkGlow ? 'duelWin .65s ease' : defGlow ? 'duelWin .65s ease' : undefined) : undefined;
 
-  const ringPct = keeperStage ? m.keeperPct : m.duelPct;
-  const ringLabel = keeperStage ? (m.penalty ? 'TIR AU BUT' : 'FACE AU GARDIEN') : 'OCCASION';
-  const ringColor = keeperStage ? C.gold : atkMgr.color;
+  const spots = [];
+  const push = (player, left, top, w, opts = {}) => {
+    if (!player) return;
+    spots.push({ key: player.id + left + top, player, left, top, w: w || wSmall, ...opts });
+  };
 
-  // who glows
-  const atkGlow = clash && (m.won || m.scored);
-  const defGlow = (outcome && !m.scored) || (keeperStage && !m.scored && (m.penalty || m.won));
+  if (!showCards) {
+    // empty pitch during intro
+  } else if (type === 'possession') {
+    const atkAll = [atkTeam.field.gk, ...atkTeam.field.outfield];
+    const defAll = [defTeam.field.gk, ...defTeam.field.outfield];
+    const atkX = [22, 42, 58, 78];
+    const defX = [28, 48, 52, 72];
+    atkAll.forEach((p, i) => push(p, atkX[i], 28 + (i % 2) * 8, wSmall));
+    defAll.forEach((p, i) => push(p, defX[i], 68 - (i % 2) * 8, wSmall, { dim: suspense }));
+  } else if (type === 'corner') {
+    const taker = m.atkPlayer;
+    const others = atkTeam.field.outfield.filter(p => p.id !== taker.id);
+    push(taker, 94, 10, wMed, { anim: clashAnim, glow: atkGlow });
+    others.forEach((p, i) => push(p, [38, 52, 66][i] || 50, [20, 24, 20][i] || 22, wSmall));
+    push(defTeam.field.gk, 50, 32, wSmall, { dim: !clash });
+    defTeam.field.outfield.forEach((p, i) => push(p, [36, 50, 64][i] || 50, [26, 22, 26][i] || 24, wSmall, { dim: suspense && !clash }));
+  } else if (type === 'contre') {
+    push(m.atkPlayer, 50, 22, wMed, { anim: clashAnim, glow: atkGlow });
+    const excluded = m.defExcluded;
+    defTeam.field.outfield.forEach(p => {
+      if (excluded && p.id === excluded.id) push(p, 8, 50, wSmall, { dim: true });
+      else push(p, p.id === m.defPlayer?.id ? 58 : 42, 38, wSmall, { anim: p.id === m.defPlayer?.id ? clashAnim : undefined, glow: defGlow && p.id === m.defPlayer?.id });
+    });
+    push(defTeam.field.gk, 50, 30, wSmall);
+  } else if (type === 'duel') {
+    push(m.atkPlayer, 36, 50, wBig, { anim: clash ? clashAnim : winAnim, glow: atkGlow });
+    push(m.defPlayer, 64, 50, wBig, { anim: clash ? clashAnim : winAnim, glow: defGlow });
+  } else if (type === 'penalty' || m.penalty) {
+    push(m.atkPlayer, 50, 72, wBig, { anim: clash || suspense ? clashAnim : winAnim, glow: atkGlow });
+    push(m.defPlayer || defTeam.field.gk, 50, 26, wMed, { anim: clash ? clashAnim : winAnim, glow: defGlow });
+  }
 
   const banner = outcome
     ? (m.scored ? 'BUT !' : (m.penalty || m.won) ? 'ARRÊT !' : 'STOPPÉ')
     : null;
 
   return (
-    <div style={{ flex: 1, display: 'flex', flexDirection: 'column', position: 'relative', overflowY: 'auto' }}>
-      {/* event banner — EventCard-inspired horizontal strip */}
-      <div key={m.i} style={{
-        display: 'flex', alignItems: 'center', gap: 10, padding: '9px 12px', marginBottom: 6,
-        borderRadius: 14, background: `linear-gradient(130deg, ${EVENT_COLORS[m.type]}1e, rgba(0,0,0,0.45))`,
-        border: `1px solid ${EVENT_COLORS[m.type]}44`, boxShadow: `0 4px 16px ${EVENT_COLORS[m.type]}22`,
-        animation: 'scorePop .4s',
-      }}>
-        <div style={{ width: 44, height: 44, borderRadius: 10, background: `radial-gradient(circle, ${EVENT_COLORS[m.type]}28, ${EVENT_COLORS[m.type]}0a)`, border: `1.5px solid ${EVENT_COLORS[m.type]}55`, display: 'flex', alignItems: 'center', justifyContent: 'center', boxShadow: `0 0 16px ${EVENT_COLORS[m.type]}44`, flexShrink: 0 }}>
-          <GzIcon name={m.icon} size={22} color={EVENT_COLORS[m.type]} />
-        </div>
-        <div style={{ flex: 1 }}>
-          <div style={{ fontFamily: 'Archivo,sans-serif', fontWeight: 900, fontSize: 15, color: '#fff', letterSpacing: 0.4, textShadow: `0 0 12px ${EVENT_COLORS[m.type]}` }}>{m.label.toUpperCase()}</div>
-          <div style={{ color: C.mut, fontSize: 11 }}><b style={{ color: atkMgr.color }}>{atkMgr.name}</b> attaque</div>
-        </div>
-        <div style={{ width: 36, height: 36, borderRadius: '50%', background: `${atkMgr.color}22`, border: `1.5px solid ${atkMgr.color}66`, display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}><Avatar mgr={atkMgr} size={28} /></div>
+    <div style={{ flex: 1, display: 'flex', flexDirection: 'column', minHeight: 0 }}>
+      <div style={{ textAlign: 'center', marginBottom: 8 }}>
+        <span style={{ fontFamily: 'Archivo,sans-serif', fontWeight: 900, fontSize: 12, letterSpacing: 0.8, color: ec }}>{m.label.toUpperCase()}</span>
       </div>
-
-      {/* duel area — cartes + centre */}
-      <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 4, position: 'relative', minHeight: 130 }}>
-        <div style={{ flex: 1, display: 'flex', justifyContent: 'center', transition: 'all .5s', transform: showCards ? `translateX(${clash ? 6 : 0}px)` : 'translateX(-30px)', opacity: showCards ? 1 : 0 }}>
-          <PlayerCard player={m.atkPlayer} w={96} interactive={false} flippable={false} glowPulse={atkGlow} />
-        </div>
-        <div style={{ width: 100, flexShrink: 0, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
-          {suspense ? (
-            <div style={{ display: 'flex', gap: 6 }}>
-              {[0, 1, 2].map(i => <div key={i} style={{ width: 12, height: 12, borderRadius: '50%', background: C.acc, animation: `bounce 0.6s ${i * 0.15}s infinite` }} />)}
+      <PitchShell highlight={ec}>
+        {spots.map(s => (
+          <PitchCardSpot key={s.key} player={s.player} left={s.left} top={s.top} w={s.w} cardStyle={cardStyle}
+            dim={s.dim} anim={s.anim} glow={s.glow} />
+        ))}
+        {outcome && banner && (
+          <div style={{ position: 'absolute', inset: 0, display: 'flex', alignItems: 'center', justifyContent: 'center', pointerEvents: 'none', zIndex: 5, background: 'rgba(0,0,0,0.35)' }}>
+            <div style={{
+              padding: '12px 28px', borderRadius: 16, animation: 'scorePop .5s',
+              background: m.scored ? `linear-gradient(135deg, ${atkMgr.color}, ${C.acc})` : 'rgba(12,10,22,0.92)',
+              border: m.scored ? 'none' : '1.5px solid ' + C.line,
+              boxShadow: m.scored ? `0 8px 32px ${atkMgr.color}88` : 'none',
+            }}>
+              <div style={{ fontFamily: 'Archivo,sans-serif', fontWeight: 900, fontSize: 32, letterSpacing: 1, color: m.scored ? '#160b02' : C.txt }}>{banner}</div>
             </div>
-          ) : showProb ? (
-            <ProbRing pct={ringPct} label={ringLabel} color={ringColor} />
-          ) : (
-            <div style={{ fontFamily: 'Archivo,sans-serif', fontWeight: 900, fontSize: 20, color: C.mut2 }}>VS</div>
-          )}
-        </div>
-        <div style={{ flex: 1, display: 'flex', justifyContent: 'center', transition: 'all .5s', transform: showCards ? `translateX(${clash ? -6 : 0}px)` : 'translateX(30px)', opacity: showCards ? 1 : 0 }}>
-          <PlayerCard player={m.defPlayer} w={96} interactive={false} flippable={false} glowPulse={defGlow} />
-        </div>
+          </div>
+        )}
+      </PitchShell>
+    </div>
+  );
+}
+
+function MatchBonusPicker({ team, value, onChange }) {
+  const [kind, setKind] = React.useState(value?.type || null);
+  const [stat, setStat] = React.useState(value?.stat || 'tir');
+  const [playerId, setPlayerId] = React.useState(value?.playerId || team.field.outfield[0]?.id);
+  const players = team.field.all;
+
+  const buildBonus = (type, s = stat, pid = playerId) => {
+    if (!type) return null;
+    if (type === 'force_pen') return { type };
+    if (type === 'team') return { type, stat: s };
+    return { type, playerId: pid, stat: s };
+  };
+
+  const pickKind = (k) => {
+    setKind(k);
+    onChange(buildBonus(k));
+  };
+  const pickStat = (s) => {
+    setStat(s);
+    if (kind) onChange(buildBonus(kind, s, playerId));
+  };
+  const pickPlayer = (pid) => {
+    setPlayerId(pid);
+    if (kind === 'player') onChange(buildBonus('player', stat, pid));
+  };
+
+  return (
+    <Surface style={{ padding: 12, marginBottom: 10, borderColor: 'rgba(201,146,46,0.3)' }}>
+      <div style={{ fontFamily: 'Archivo,sans-serif', fontWeight: 900, fontSize: 11, letterSpacing: 0.6, color: C.mut2, textTransform: 'uppercase', marginBottom: 8 }}>Bonus de match</div>
+      <div style={{ display: 'flex', flexWrap: 'wrap', gap: 6, marginBottom: kind && kind !== 'force_pen' ? 10 : 0 }}>
+        <button onClick={() => pickKind(null)} style={{
+          padding: '6px 10px', borderRadius: 999, border: `1px solid ${!kind ? C.acc : C.line}`,
+          background: !kind ? 'rgba(201,146,46,0.15)' : 'transparent', color: !kind ? C.accL : C.mut,
+          fontSize: 10, fontWeight: 800, fontFamily: 'Archivo,sans-serif', cursor: 'pointer',
+        }}>Aucun</button>
+        {MATCH_BONUSES.map(b => (
+          <button key={b.k} onClick={() => pickKind(b.k)} style={{
+            padding: '6px 10px', borderRadius: 999, border: `1px solid ${kind === b.k ? C.acc : C.line}`,
+            background: kind === b.k ? 'rgba(201,146,46,0.15)' : 'transparent', color: kind === b.k ? C.accL : C.mut,
+            fontSize: 10, fontWeight: 800, fontFamily: 'Archivo,sans-serif', cursor: 'pointer',
+          }}>{b.name}</button>
+        ))}
       </div>
-
-      {/* stats détaillées — pleine largeur, joueur vs équipe */}
-      {showStats && <ActionStatsCompare m={m} go={showStats} atkMgr={atkMgr} defMgr={defMgr} />}
-
-      {/* outcome overlay */}
-      {outcome && (
-        <div style={{ position: 'absolute', inset: 0, display: 'flex', alignItems: 'center', justifyContent: 'center', pointerEvents: 'none', zIndex: 5 }}>
-          <div style={{
-            padding: '14px 30px', borderRadius: 18, textAlign: 'center', animation: 'scorePop .5s',
-            background: m.scored ? `linear-gradient(135deg, ${atkMgr.color}, ${C.acc})` : 'rgba(15,12,24,0.92)',
-            border: m.scored ? 'none' : '1.5px solid ' + C.line,
-            boxShadow: m.scored ? `0 10px 40px ${atkMgr.color}` : '0 10px 30px rgba(0,0,0,0.6)',
-          }}>
-            <div style={{ fontFamily: 'Archivo,sans-serif', fontWeight: 900, fontSize: 38, letterSpacing: 1, color: m.scored ? '#160b02' : C.txt }}>{banner}</div>
+      {kind === 'team' && (
+        <div style={{ display: 'flex', flexWrap: 'wrap', gap: 5 }}>
+          {MATCH_BONUS_STATS.map(k => (
+            <button key={k} onClick={() => pickStat(k)} style={{
+              padding: '5px 8px', borderRadius: 8, border: `1px solid ${stat === k ? C.cyan : C.line}`,
+              background: stat === k ? 'rgba(58,138,255,0.12)' : 'transparent', color: stat === k ? C.cyan : C.mut2,
+              fontSize: 9.5, fontWeight: 800, cursor: 'pointer', fontFamily: 'Archivo,sans-serif',
+            }}>{STAT_ABBR[k]}</button>
+          ))}
+        </div>
+      )}
+      {kind === 'player' && (
+        <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
+          <div style={{ display: 'flex', gap: 6, overflowX: 'auto' }}>
+            {players.map(p => (
+              <button key={p.id} onClick={() => pickPlayer(p.id)} style={{
+                border: `1.5px solid ${playerId === p.id ? C.acc : C.line}`, borderRadius: 10, padding: 2,
+                background: 'transparent', cursor: 'pointer', flexShrink: 0,
+              }}><MiniCard player={p} w={44} /></button>
+            ))}
+          </div>
+          <div style={{ display: 'flex', flexWrap: 'wrap', gap: 5 }}>
+            {MATCH_BONUS_STATS.map(k => (
+              <button key={k} onClick={() => pickStat(k)} style={{
+                padding: '5px 8px', borderRadius: 8, border: `1px solid ${stat === k ? C.acc : C.line}`,
+                background: stat === k ? 'rgba(201,146,46,0.12)' : 'transparent', color: stat === k ? C.accL : C.mut2,
+                fontSize: 9.5, fontWeight: 800, cursor: 'pointer', fontFamily: 'Archivo,sans-serif',
+              }}>{STAT_ABBR[k]}</button>
+            ))}
           </div>
         </div>
       )}
-    </div>
+      {kind === 'force_pen' && <div style={{ color: C.mut, fontSize: 11 }}>Un de tes 3 moments sera transformé en penalty.</div>}
+    </Surface>
   );
 }
 
@@ -687,30 +789,28 @@ function CommentaryBar({ text }) {
   );
 }
 
-function MatchFlow({ midA, midB, replay, seed, onExit }) {
-  const sim = React.useMemo(() => simulateMatch(midA, midB, seed || (replay ? 777 : undefined)), [midA, midB, seed, replay]);
-  const A = sim.A, B = sim.B;
+function MatchFlow({ midA, midB, replay, seed, bonusA: initialBonusA, onExit }) {
+  const [sim, setSim] = React.useState(() => replay ? simulateMatch(midA, midB, seed || 777, { bonusA: initialBonusA }) : null);
   const [phase, setPhase] = React.useState(replay ? 'deal' : 'kickoff');
   const [dealt, setDealt] = React.useState(0);
   const [ai, setAi] = React.useState(0);
   const [micro, setMicro] = React.useState('intro');
   const tok = React.useRef(0);
+  const cardStyle = window.__cardStyle || 'blason';
 
-  // deal phase
   React.useEffect(() => {
-    if (phase !== 'deal') return;
+    if (phase !== 'deal' || !sim) return;
     setDealt(0); setAi(0);
     let i = 0;
     const t = setInterval(() => { i++; setDealt(i); if (i >= 6) { clearInterval(t); setTimeout(() => setPhase('play'), 650); } }, 430);
     return () => clearInterval(t);
-  }, [phase]);
+  }, [phase, sim]);
 
-  // play runner — per action micro-step sequence
   React.useEffect(() => {
-    if (phase !== 'play') return;
+    if (phase !== 'play' || !sim) return;
     const myTok = ++tok.current;
-    const m = sim.moments[ai];
-    const seq = seqFor(m);
+    const moment = sim.moments[ai];
+    const seq = seqFor(moment);
     let idx = 0; let timer;
     setMicro(seq[0][0]);
     const run = () => {
@@ -724,16 +824,33 @@ function MatchFlow({ midA, midB, replay, seed, onExit }) {
     };
     run();
     return () => { clearTimeout(timer); };
-  }, [phase, ai, replay]);
+  }, [phase, ai, replay, sim]);
 
   const skip = () => { if (phase !== 'play') return; tok.current++; if (ai < 5) setAi(ai + 1); else setPhase('result'); };
 
-  // live score
+  if (phase === 'kickoff') {
+    const previewA = buildTeam(midA), previewB = buildTeam(midB);
+    return (
+      <Kickoff
+        A={previewA} B={previewB}
+        bonusA={initialBonusA}
+        onStart={(bonus) => {
+          setSim(simulateMatch(midA, midB, seed, { bonusA: bonus }));
+          setAi(0);
+          setPhase('deal');
+        }}
+        onExit={onExit}
+      />
+    );
+  }
+
+  if (!sim) return null;
+  const A = sim.A, B = sim.B;
+
   const resolvedUpTo = ai + (micro === 'outcome' ? 1 : 0);
   const sA = sim.moments.slice(0, resolvedUpTo).filter(x => x.scored && x.atk === 'A').length;
   const sB = sim.moments.slice(0, resolvedUpTo).filter(x => x.scored && x.atk === 'B').length;
 
-  if (phase === 'kickoff') return <Kickoff A={A} B={B} sim={sim} onStart={() => { setAi(0); setPhase('deal'); }} onExit={onExit} />;
   if (phase === 'result') return <ResultScreen sim={sim} sA={sim.scoreA} sB={sim.scoreB} replay={replay} onExit={onExit} onReplay={() => { setAi(0); setPhase('deal'); }} />;
 
   const m = phase === 'play' ? sim.moments[ai] : null;
@@ -748,13 +865,14 @@ function MatchFlow({ midA, midB, replay, seed, onExit }) {
   const defMgr = m ? (m.atk === 'A' ? B.mgr : A.mgr) : B.mgr;
   const bump = (phase === 'play' && micro === 'outcome' && m.scored) ? m.atk : null;
 
+  const atkTeam = m ? (m.atk === 'A' ? A : B) : A;
+  const defTeam = m ? (m.atk === 'A' ? B : A) : B;
   const commentary = phase !== 'play' ? 'Tirage des moments décisifs…'
     : micro === 'outcome' ? m.comments.result
-    : (!m.penalty && geq(micro, 'duel')) ? m.comments.mid
+    : (micro === 'duel' || micro === 'keeper') ? m.comments.mid
     : m.comments.reveal;
 
   const minute = phase === 'play' ? `${12 + ai * 9}'` : "0'";
-  const phaseLabel = phase === 'play' ? (MATCH_MICRO_LABELS[micro] || '') : '';
 
   return (
     <div style={{ height: '100%', display: 'flex', flexDirection: 'column', paddingTop: 54 }} onClick={phase === 'play' ? skip : undefined}>
@@ -762,10 +880,6 @@ function MatchFlow({ midA, midB, replay, seed, onExit }) {
         <button onClick={e => { e.stopPropagation(); skip(); }} style={{ padding: '7px 11px', borderRadius: 11, border: '1px solid ' + C.line, background: C.surf2, color: C.mut, fontSize: 11, fontWeight: 800, fontFamily: 'Archivo,sans-serif', cursor: 'pointer' }}>Passer</button>
       ) : replay ? <Chip color={C.cyan}>Replay</Chip> : null} />
       <PremiumScoreboard A={A} B={B} sA={sA} sB={sB} minute={minute} bump={bump} live={phase === 'play'} />
-      {phase !== 'play' && <CountdownPill />}
-      <div style={{ padding: '0 16px' }}>
-        <EventRail sim={sim} dealt={dealt} active={phase === 'play' ? ai : -1} resolvedUpTo={resolvedUpTo} />
-      </div>
 
       {phase === 'deal' ? (
         <div style={{ flex: 1, display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', gap: 10, padding: '0 16px' }}>
@@ -802,44 +916,57 @@ function MatchFlow({ midA, midB, replay, seed, onExit }) {
           {dealt >= 6 && <div style={{ fontFamily: 'Archivo,sans-serif', fontWeight: 900, fontSize: 17, color: C.acc, animation: 'scorePop .5s', display: 'flex', alignItems: 'center', gap: 6 }}><GzIcon name="bolt" size={18} color={C.accL} /> Que le match commence !</div>}
         </div>
       ) : (
-        <div style={{ flex: 1, display: 'flex', flexDirection: 'column', padding: '4px 16px 12px', minHeight: 0, overflowY: 'auto' }}>
-          {phaseLabel && <div style={{ fontSize: 9, fontWeight: 800, color: C.acc, letterSpacing: 1, fontFamily: 'Archivo,sans-serif', textTransform: 'uppercase', marginBottom: 6, textAlign: 'center' }}>{phaseLabel}</div>}
-          <Theater m={m} micro={micro} atkMgr={atkMgr} defMgr={defMgr} />
-          <div style={{ marginTop: 6 }}><CommentaryBar text={commentary} /></div>
-          <div style={{ textAlign: 'center', color: C.mut2, fontSize: 10, marginTop: 6 }}>Touche l'écran pour accélérer</div>
+        <div style={{ flex: 1, display: 'flex', flexDirection: 'column', padding: '4px 16px 12px', minHeight: 0 }}>
+          <MatchPitchScene
+            m={m} micro={micro}
+            atkTeam={atkTeam} defTeam={defTeam}
+            atkMgr={atkMgr} defMgr={defMgr}
+            cardStyle={cardStyle}
+          />
+          <div style={{ marginTop: 8 }}><CommentaryBar text={commentary} /></div>
         </div>
       )}
     </div>
   );
 }
 
-function Kickoff({ A, B, sim, onStart, onExit }) {
+function Kickoff({ A, B, bonusA: initialBonus, onStart, onExit }) {
   const [tab, setTab] = React.useState('compo');
+  const [bonus, setBonus] = React.useState(initialBonus || loadPlannedBonus());
   const youTeam = A.mgr.you ? A : B;
   const cardStyle = window.__cardStyle || 'blason';
   const rating = (youTeam.agg.ovr / 10 + 0.55).toFixed(1).replace('.', ',');
 
   const tabContent = {
-    resume: <HighlightsTimeline moments={sim.moments} sim={sim} />,
+    resume: (
+      <Surface style={{ padding: 14, textAlign: 'center', borderColor: 'rgba(201,146,46,0.2)' }}>
+        <div style={{ color: C.mut, fontSize: 12.5, lineHeight: 1.45 }}>6 moments décisifs — possession, corners, contre-attaques, duels et penalties. Choisis ton bonus avant le coup d'envoi.</div>
+      </Surface>
+    ),
     compo: <PitchFormation4 team={youTeam} cardStyle={cardStyle} />,
     stats: <MatchStatsPanel A={A} B={B} />,
     duel: <MatchDuelPanel A={A} B={B} />,
+  };
+
+  const handleStart = () => {
+    if (bonus) savePlannedBonus(bonus);
+    onStart(bonus || null);
   };
 
   return (
     <div style={{ height: '100%', display: 'flex', flexDirection: 'column', paddingTop: 54 }}>
       <MatchTopBar onBack={onExit} />
       <PremiumScoreboard A={A} B={B} sA={0} sB={0} minute="0'" />
-      <CountdownPill />
       <MatchTabs tab={tab} onChange={setTab} />
       <div style={{ flex: 1, overflowY: 'auto', padding: '0 16px', minHeight: 0 }}>
+        <MatchBonusPicker team={youTeam} value={bonus} onChange={setBonus} />
         {tabContent[tab]}
       </div>
       <MatchFooter
         rating={rating}
-        points="—"
+        points={bonusLabel(bonus) || '—'}
         cta={<><GzIcon name="ball" size={18} color="#1a0e02" /> Voir le match</>}
-        onCta={onStart}
+        onCta={handleStart}
       />
     </div>
   );
@@ -893,6 +1020,9 @@ function ResultScreen({ sim, sA, sB, replay, onExit, onReplay }) {
       <MatchFooter
         rating={rating}
         points={replay ? '—' : `+${pts} · ${jetons} jetons`}
+        pointsLabel="Points gagnés"
+        pointsIcon="trophy"
+        pointsColor={C.lime}
         cta={replay ? 'Retour à la ligue' : 'Revoir le match'}
         ctaKind={replay ? 'primary' : 'ghost'}
         onCta={replay ? onExit : onReplay}
@@ -906,4 +1036,4 @@ function ResultScreen({ sim, sA, sB, replay, onExit, onReplay }) {
   );
 }
 
-Object.assign(window, { MatchFlow });
+Object.assign(window, { MatchFlow, MatchBonusPicker });

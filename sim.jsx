@@ -1,13 +1,18 @@
 // sim.jsx — match simulation engine. Implements the probability logic from the brief.
 // Exports: buildTeam, teamAgg, simulateMatch, MOMENT_META
 
+// rare = fréquence du tirage (inverse de la facilité à marquer)
 const MOMENT_META = {
-  corner:    { label: 'Corner',         icon: 'corner', rare: 22 },
-  contre:    { label: 'Contre-attaque', icon: 'bolt',   rare: 24 },
-  possession:{ label: 'Possession',     icon: 'target', rare: 30 },
-  duel:      { label: '1 contre 1',     icon: 'duel',   rare: 17 },
-  penalty:   { label: 'Penalty',        icon: 'dice',   rare: 7  },
+  possession:{ label: 'Possession',     icon: 'target', rare: 38 },
+  corner:    { label: 'Corner',         icon: 'corner', rare: 27 },
+  contre:    { label: 'Contre-attaque', icon: 'bolt',   rare: 20 },
+  duel:      { label: '1 contre 1',     icon: 'duel',   rare: 12 },
+  penalty:   { label: 'Penalty',        icon: 'dice',   rare: 5  },
 };
+
+// du plus dur au plus facile à marquer
+const MOMENT_SCORE_BIAS = { possession: -0.85, corner: -0.55, contre: 0.05, duel: 0.15, penalty: 0.95 };
+const MOMENT_CONVERT_MOD = { possession: 0.62, corner: 0.72, contre: 0.86, duel: 0.91, penalty: 1 };
 
 // dynamic commentary pools (selected with the seeded rng → identical on replay)
 const COMMENTS = {
@@ -43,6 +48,65 @@ function teamAgg(field) {
   };
   agg.ovr = Math.round((agg.vit + agg.tir + agg.dri + agg.pas + agg.phy + agg.def) / 6);
   return agg;
+}
+
+function cloneField(field) {
+  const cloneP = (p) => ({ ...p, stats: { ...p.stats }, boost: p.boost ? { ...p.boost } : undefined });
+  const gk = cloneP(field.gk);
+  const outfield = field.outfield.map(cloneP);
+  return { gk, outfield, all: [gk, ...outfield] };
+}
+
+function applyPlayerStatBoost(field, playerId, stat, amount) {
+  const f = cloneField(field);
+  const touch = (p) => {
+    if (p.id !== playerId) return p;
+    const stats = { ...p.stats };
+    stats[stat] = Math.min(99, stats[stat] + amount);
+    const np = { ...p, stats, matchBonus: { stat, amount } };
+    np.ovr = overall(np);
+    return np;
+  };
+  f.gk = touch(f.gk);
+  f.outfield = f.outfield.map(touch);
+  f.all = [f.gk, ...f.outfield];
+  return f;
+}
+
+function applyTeamStatBoost(field, stat, amount) {
+  const f = cloneField(field);
+  const touch = (p) => {
+    const stats = { ...p.stats };
+    stats[stat] = Math.min(99, stats[stat] + amount);
+    const np = { ...p, stats };
+    np.ovr = overall(np);
+    return np;
+  };
+  f.gk = touch(f.gk);
+  f.outfield = f.outfield.map(touch);
+  f.all = [f.gk, ...f.outfield];
+  return f;
+}
+
+function applyMatchBonus(team, bonus) {
+  if (!bonus || !bonus.type) return team;
+  let field = team.field;
+  if (bonus.type === 'team' && bonus.stat) field = applyTeamStatBoost(field, bonus.stat, 4);
+  if (bonus.type === 'player' && bonus.playerId && bonus.stat) field = applyPlayerStatBoost(field, bonus.playerId, bonus.stat, 6);
+  const rl = ROLES[team.mid];
+  const find = (id) => field.all.find(p => p.id === id) || withBoost(byId(id));
+  return {
+    ...team,
+    field,
+    agg: teamAgg(field),
+    roles: {
+      corner: find(rl.corner),
+      penalty: find(rl.penalty),
+      duelAtt: find(rl.duelAtt),
+      duelDef: find(rl.duelDef),
+    },
+    matchBonus: bonus,
+  };
 }
 
 // build a full team object for a manager id
@@ -90,6 +154,7 @@ function resolveMoment(m, A, B, rng) {
   let Aatk, Adef, atkPlayer, defPlayer, aLabel, dLabel, k1 = 12, bias = 0;
   let penalty = false;
   let atkLines = [], defLines = [], keeperLabel = null;
+  let defExcluded = null;
 
   switch (m.type) {
     case 'corner': {
@@ -103,19 +168,23 @@ function resolveMoment(m, A, B, rng) {
       dLabel = `Défense ${Math.round(dg.def)} · Tir ${Math.round(dg.tir)}`;
       atkLines = [{ label: 'Passe', key: 'pas', value: taker.stats.pas, bonus: bof(taker, 'pas') }, { label: 'Physique équipe', key: 'phy', value: Math.round(phyOthers), team: true }];
       defLines = [{ label: 'Défense', key: 'def', value: Math.round(dg.def), team: true }];
-      bias = -0.55; // corners are hard
+      bias = MOMENT_SCORE_BIAS.corner;
       break;
     }
     case 'contre': {
+      const weakest = pick(defT.field.outfield, 'def', 'min');
+      const remaining = defT.field.outfield.filter(p => p.id !== weakest.id);
+      const defReduced = remaining.length ? avg(remaining.map(p => p.stats.def)) : dg.def;
       Aatk = 100 * n(ag.vit) * n(ag.pas);
-      Adef = 100 * n(dg.def) * n(dg.vit) * 0.82; // malus: outnumbered
+      Adef = 100 * n(defReduced) * n(dg.vit) * 0.84;
       atkPlayer = pick(atkT.field.outfield, 'vit');
-      defPlayer = pick(defT.field.outfield, 'def');
+      defPlayer = pick(remaining, 'def');
       aLabel = `Vitesse ${Math.round(ag.vit)} × Passe ${Math.round(ag.pas)}`;
-      dLabel = `Défense ${Math.round(dg.def)} × Vitesse ${Math.round(dg.vit)} − malus`;
+      dLabel = `Défense ${Math.round(defReduced)} (sans ${weakest.name.split(' ').pop()})`;
       atkLines = [{ label: 'Vitesse équipe', key: 'vit', value: Math.round(ag.vit), team: true }, { label: 'Passe équipe', key: 'pas', value: Math.round(ag.pas), team: true }];
-      defLines = [{ label: 'Défense', key: 'def', value: Math.round(dg.def), team: true, malus: true }];
-      bias = 0.15;
+      defLines = [{ label: 'Défense réduite', key: 'def', value: Math.round(defReduced), team: true, malus: true }];
+      bias = MOMENT_SCORE_BIAS.contre;
+      defExcluded = weakest;
       break;
     }
     case 'possession': {
@@ -127,7 +196,7 @@ function resolveMoment(m, A, B, rng) {
       dLabel = `Défense ${Math.round(dg.def)}`;
       atkLines = [{ label: 'Passe équipe', key: 'pas', value: Math.round(ag.pas), team: true }, { label: 'Dribble équipe', key: 'dri', value: Math.round(ag.dri), team: true }];
       defLines = [{ label: 'Défense', key: 'def', value: Math.round(dg.def), team: true }];
-      bias = -0.25;
+      bias = MOMENT_SCORE_BIAS.possession;
       break;
     }
     case 'duel': {
@@ -139,7 +208,7 @@ function resolveMoment(m, A, B, rng) {
       dLabel = `Déf ${dfn.stats.def} × Vit ${dfn.stats.vit} × Phy ${dfn.stats.phy}`;
       atkLines = [{ label: 'Vitesse', key: 'vit', value: att.stats.vit, bonus: bof(att, 'vit') }, { label: 'Dribble', key: 'dri', value: att.stats.dri, bonus: bof(att, 'dri') }];
       defLines = [{ label: 'Défense', key: 'def', value: dfn.stats.def, bonus: bof(dfn, 'def') }, { label: 'Physique', key: 'phy', value: dfn.stats.phy, bonus: bof(dfn, 'phy') }];
-      bias = 0;
+      bias = MOMENT_SCORE_BIAS.duel;
       break;
     }
     case 'penalty': {
@@ -152,7 +221,7 @@ function resolveMoment(m, A, B, rng) {
       atkLines = [{ label: 'Tir', key: 'tir', value: taker.stats.tir, bonus: bof(taker, 'tir') }];
       defLines = [{ label: 'Gardien', key: 'def', value: defT.agg.gkDef }];
       keeperLabel = 'Gardien';
-      k1 = 15; bias = 0.95; // penalties usually scored
+      k1 = 15; bias = MOMENT_SCORE_BIAS.penalty;
       break;
     }
   }
@@ -172,7 +241,8 @@ function resolveMoment(m, A, B, rng) {
   } else {
     // chance created → shot, slightly favourable, keeper can still save
     const keeperSave = clamp(0.18 + (dg.gkDef - 50) / 130, 0.12, 0.62);
-    pConvert = clamp(0.92 - keeperSave + (ag.tir - 70) / 320, 0.4, 0.95);
+    const convertMod = MOMENT_CONVERT_MOD[m.type] || 0.85;
+    pConvert = clamp((0.92 - keeperSave + (ag.tir - 70) / 320) * convertMod, 0.28, 0.95);
     scored = rng() < pConvert;
     explain = scored
       ? `But ! ${atkPlayer.name} gagne l'action et bat le gardien (${Math.round(dg.gkDef)}).`
@@ -193,7 +263,7 @@ function resolveMoment(m, A, B, rng) {
     atkPlayer, defPlayer, penalty,
     A: Math.round(Aatk), D: Math.round(Adef), aLabel, dLabel,
     pMoment, won, pConvert, scored, explain,
-    atkLines, defLines, keeperLabel, duelPct, keeperPct, comments,
+    atkLines, defLines, keeperLabel, duelPct, keeperPct, comments, defExcluded,
   };
 }
 
@@ -202,10 +272,30 @@ function simpleRng(seed) {
   return () => { s = (s * 1664525 + 1013904223) >>> 0; return s / 4294967296; };
 }
 
-function simulateMatch(midA, midB, seed) {
+function forcePenaltyMoment(plan, side) {
+  const idx = plan.findIndex(m => m.atk === side);
+  if (idx >= 0) plan[idx] = { ...plan[idx], type: 'penalty' };
+}
+
+function pickOpponentBonus(rng, mid) {
+  const stats = ['vit', 'tir', 'dri', 'pas', 'phy', 'def'];
+  const roll = rng();
+  if (roll < 0.45) return { type: 'team', stat: stats[Math.floor(rng() * stats.length)] };
+  const field = fieldOf(mid);
+  const p = field.all[Math.floor(rng() * field.all.length)];
+  return { type: 'player', playerId: p.id, stat: stats[Math.floor(rng() * stats.length)] };
+}
+
+function simulateMatch(midA, midB, seed, opts = {}) {
   const rng = simpleRng(seed || (Date.now() & 0xffffff));
-  const A = buildTeam(midA), B = buildTeam(midB);
+  let A = buildTeam(midA), B = buildTeam(midB);
+  const bonusA = opts.bonusA || null;
+  const bonusB = opts.bonusB || pickOpponentBonus(rng, midB);
+  if (bonusA) A = applyMatchBonus(A, bonusA);
+  if (bonusB) B = applyMatchBonus(B, bonusB);
   const plan = drawMoments(rng);
+  if (bonusA?.type === 'force_pen') forcePenaltyMoment(plan, 'A');
+  if (bonusB?.type === 'force_pen') forcePenaltyMoment(plan, 'B');
   const moments = plan.map(m => resolveMoment(m, A, B, rng));
   let scoreA = 0, scoreB = 0;
   moments.forEach((r, i) => {
@@ -213,7 +303,7 @@ function simulateMatch(midA, midB, seed) {
     if (r.scored) { if (r.atk === 'A') scoreA++; else scoreB++; }
     r.runA = scoreA; r.runB = scoreB;
   });
-  return { A, B, moments, scoreA, scoreB, seed: seed || 0 };
+  return { A, B, moments, scoreA, scoreB, seed: seed || 0, bonusA, bonusB };
 }
 
-Object.assign(window, { MOMENT_META, teamAgg, buildTeam, simulateMatch });
+Object.assign(window, { MOMENT_META, MOMENT_SCORE_BIAS, teamAgg, buildTeam, applyMatchBonus, simulateMatch, pickOpponentBonus });

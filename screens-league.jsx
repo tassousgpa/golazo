@@ -76,7 +76,7 @@ function JerseyDot({ mgr, size = 36 }) {
   );
 }
 
-function LeagueHome({ onStartMatch, onSimulate, onCreateLeague, onOpenMarket, onOpenSquad, onOpenShop, cardStyle }) {
+function LeagueHome({ onStartMatch, onSimulate, onCreateLeague, onOpenMarket, onOpenSquad, onOpenShop, cardStyle, plannedBonus, onPlanBonus }) {
   const you = MANAGERS.find(m => m.you);
   const yourRow = STANDINGS.find(s => s.mid === you.id);
   const oppRow = STANDINGS.find(s => s.mid !== you.id);
@@ -85,7 +85,12 @@ function LeagueHome({ onStartMatch, onSimulate, onCreateLeague, onOpenMarket, on
   const boosts = Object.keys(LIVE_BOOSTS);
   const livePlayers = boosts.map(id => withBoost(byId(id)));
   const [showStandings, setShowStandings] = React.useState(false);
+  const [showBonusPlan, setShowBonusPlan] = React.useState(false);
+  const [draftBonus, setDraftBonus] = React.useState(plannedBonus);
+  const youTeam = buildTeam(you.id);
   const [slide, setSlide] = React.useState(0);
+
+  React.useEffect(() => { setDraftBonus(plannedBonus); }, [plannedBonus]);
 
   React.useEffect(() => {
     if (livePlayers.length <= 1) return;
@@ -144,11 +149,28 @@ function LeagueHome({ onStartMatch, onSimulate, onCreateLeague, onOpenMarket, on
               <span style={{ fontFamily: 'Archivo,sans-serif', fontWeight: 900, fontSize: 11, color: C.mut2 }}>VS</span>
               <JerseyDot mgr={opp} size={32} />
             </div>
+            {plannedBonus && (
+              <div style={{ marginTop: 8, textAlign: 'center' }}>
+                <Chip color={C.gold}><GzIcon name="star" size={11} color={C.gold} /> {bonusLabel(plannedBonus)}</Chip>
+              </div>
+            )}
           </div>
         </div>
         <div style={{ height: 12 }} />
-        <Btn full size="lg" onClick={() => onStartMatch(opp.id)}>Voir le match</Btn>
+        <div style={{ display: 'flex', gap: 8 }}>
+          <Btn kind="ghost" full onClick={() => setShowBonusPlan(true)}>Planifier bonus</Btn>
+          <Btn full size="lg" onClick={() => onStartMatch(opp.id)}>Voir le match</Btn>
+        </div>
       </Surface>
+
+      <Sheet open={showBonusPlan} onClose={() => setShowBonusPlan(false)} title="Bonus pour le prochain match">
+        <MatchBonusPicker team={youTeam} value={draftBonus} onChange={setDraftBonus} />
+        <div style={{ height: 12 }} />
+        <Btn full onClick={() => { onPlanBonus(draftBonus); setShowBonusPlan(false); }}>Enregistrer</Btn>
+        {plannedBonus && (
+          <Btn kind="ghost" full style={{ marginTop: 8 }} onClick={() => { onPlanBonus(null); setDraftBonus(null); setShowBonusPlan(false); }}>Retirer le bonus planifié</Btn>
+        )}
+      </Sheet>
 
       {/* ── Performances temps réel ── */}
       <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 10 }}>

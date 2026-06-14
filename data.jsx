@@ -166,8 +166,38 @@ function withBoost(p) {
   return np;
 }
 
+// match bonuses (jetons — planifiables avant le match)
+const MATCH_BONUSES = [
+  { k: 'team', icon: 'chart', name: "Boost d'équipe", desc: '+4 sur une stat d\'équipe pour ce match' },
+  { k: 'player', icon: 'star', name: 'Boost joueur', desc: '+6 sur un joueur pour ce match' },
+  { k: 'force_pen', icon: 'target', name: 'Penalty forcé', desc: 'Un de tes moments devient un penalty' },
+];
+const MATCH_BONUS_STATS = ['vit', 'tir', 'dri', 'pas', 'phy', 'def'];
+const PLANNED_BONUS_KEY = 'golazo_planned_bonus';
+
+function loadPlannedBonus() {
+  try {
+    const raw = localStorage.getItem(PLANNED_BONUS_KEY);
+    return raw ? JSON.parse(raw) : null;
+  } catch { return null; }
+}
+function savePlannedBonus(bonus) {
+  if (!bonus) localStorage.removeItem(PLANNED_BONUS_KEY);
+  else localStorage.setItem(PLANNED_BONUS_KEY, JSON.stringify(bonus));
+}
+function bonusLabel(bonus) {
+  if (!bonus) return null;
+  const meta = MATCH_BONUSES.find(x => x.k === bonus.type);
+  if (!meta) return null;
+  if (bonus.type === 'force_pen') return meta.name;
+  if (bonus.type === 'team') return `${meta.name} · ${STAT_LABEL[bonus.stat] || bonus.stat}`;
+  const p = bonus.playerId ? byId(bonus.playerId) : null;
+  return p ? `${meta.name} · ${p.name.split(' ').pop()} ${STAT_ABBR[bonus.stat] || ''}` : meta.name;
+}
+
 Object.assign(window, {
   COUNTRIES, RARITY, RARITY_ORDER, POS, STAT_KEYS, STAT_LABEL, STAT_ABBR,
   PLAYERS, byId, MANAGERS, SQUADS, ROLES, STANDINGS, LIVE_BOOSTS,
-  overall, fieldOf, withBoost,
+  MATCH_BONUSES, MATCH_BONUS_STATS, PLANNED_BONUS_KEY,
+  overall, fieldOf, withBoost, loadPlannedBonus, savePlannedBonus, bonusLabel,
 });
