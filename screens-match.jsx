@@ -1,13 +1,35 @@
 // screens-match.jsx — CINEMATIC auto-playing match: pack-opening reveals,
 // per-action micro-steps, animated stats, live commentary, ~45-60s, deterministic replay.
 
-const ORDER = ['intro', 'cards', 'suspense', 'duel', 'keeper', 'outcome'];
+const ORDER = ['intro', 'cards', 'stats', 'prob', 'suspense', 'duel', 'keeper', 'outcome'];
 const geq = (micro, s) => ORDER.indexOf(micro) >= ORDER.indexOf(s);
 
+const MICRO_HINTS = {
+  intro: 'Moment clé',
+  cards: 'Mise en place',
+  stats: 'Forces en jeu',
+  prob: 'Probabilité',
+  suspense: 'Tension…',
+  duel: 'Duel',
+  keeper: 'Face au gardien',
+  outcome: 'Résultat',
+};
+
+// Terrain : but défendu en bas (y élevé), attaque vers le bas. Gardiens toujours sur leur ligne.
+const PITCH = {
+  ATK_GOAL_Y: 14,
+  DEF_GOAL_Y: 86,
+  GK_ATK: { x: 50, y: 12 },
+  GK_DEF: { x: 50, y: 88 },
+  PEN_SPOT: { x: 50, y: 74 },
+  BOX_TOP: 62,
+};
+
 function seqFor(m) {
-  if (m.penalty) return [['intro', 500], ['cards', 700], ['keeper', 1000], ['outcome', 1300]];
-  if (m.type === 'duel') return [['intro', 450], ['cards', 650], ['duel', 1100], ['outcome', 1200]];
-  return [['intro', 450], ['cards', 750], ['suspense', 650], ['outcome', 1100]];
+  const head = [['intro', 1200], ['cards', 1600], ['stats', 2400], ['prob', 1800]];
+  if (m.penalty) return [...head, ['suspense', 1000], ['keeper', 1700], ['outcome', 2200]];
+  if (m.type === 'duel') return [...head, ['suspense', 900], ['duel', 1800], ['outcome', 2200]];
+  return [...head, ['suspense', 1100], ['outcome', 2000]];
 }
 
 const easeOut = (p) => 1 - Math.pow(1 - p, 3);
@@ -353,37 +375,39 @@ function TeamEmblem({ mgr, size = 44 }) {
   );
 }
 
-function PremiumScoreboard({ A, B, sA, sB, minute, bump, live }) {
+function PremiumScoreboard({ A, B, sA, sB, minute, bump, live, compact }) {
   const rankA = rankOf(A.mid);
   const rankB = rankOf(B.mid);
+  const em = compact ? 32 : 42;
+  const scoreSize = compact ? 26 : 32;
   const num = (v, color, side) => (
-    <span style={{ fontFamily: 'Archivo,sans-serif', fontWeight: 900, fontSize: 32, color, lineHeight: 1, display: 'inline-block', animation: bump === side ? 'scorePop .5s' : 'none' }}>{v}</span>
+    <span style={{ fontFamily: 'Archivo,sans-serif', fontWeight: 900, fontSize: scoreSize, color, lineHeight: 1, display: 'inline-block', animation: bump === side ? 'scorePop .5s' : 'none' }}>{v}</span>
   );
   return (
-    <div style={{ padding: '0 16px 8px' }}>
+    <div style={{ padding: compact ? '0 0 6px' : '0 16px 8px' }}>
       <div style={{ display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between', gap: 8 }}>
-        <div style={{ flex: 1, display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 6, minWidth: 0 }}>
-          <TeamEmblem mgr={A.mgr} size={42} />
-          <div style={{ fontFamily: 'Archivo,sans-serif', fontWeight: 800, fontSize: 11.5, textAlign: 'center', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis', maxWidth: '100%' }}>{A.mgr.name}</div>
-          <div style={{ fontSize: 10, fontWeight: 800, color: C.accL, fontFamily: 'Archivo,sans-serif' }}>{rankA === 1 ? '1er' : `${rankA}e`}</div>
+        <div style={{ flex: 1, display: 'flex', flexDirection: 'column', alignItems: 'center', gap: compact ? 3 : 6, minWidth: 0 }}>
+          <TeamEmblem mgr={A.mgr} size={em} />
+          {!compact && <div style={{ fontFamily: 'Archivo,sans-serif', fontWeight: 800, fontSize: 11.5, textAlign: 'center', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis', maxWidth: '100%' }}>{A.mgr.name}</div>}
+          {!compact && <div style={{ fontSize: 10, fontWeight: 800, color: C.accL, fontFamily: 'Archivo,sans-serif' }}>{rankA === 1 ? '1er' : `${rankA}e`}</div>}
         </div>
-        <div style={{ textAlign: 'center', paddingTop: 4 }}>
+        <div style={{ textAlign: 'center', paddingTop: compact ? 0 : 4 }}>
           <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 8 }}>
             {num(sA, A.mgr.color, 'A')}
-            <span style={{ fontFamily: 'Archivo,sans-serif', fontWeight: 900, fontSize: 14, color: C.accL }}>{minute || "0'"}</span>
+            <span style={{ fontFamily: 'Archivo,sans-serif', fontWeight: 900, fontSize: compact ? 12 : 14, color: C.accL }}>{minute || "0'"}</span>
             {num(sB, B.mgr.color, 'B')}
           </div>
-          {live && (
+          {live && !compact && (
             <div style={{ display: 'inline-flex', alignItems: 'center', gap: 5, marginTop: 8, padding: '4px 10px', borderRadius: 999, background: 'rgba(0,0,0,0.45)', border: '1px solid rgba(50,200,112,0.35)' }}>
               <span style={{ width: 6, height: 6, borderRadius: '50%', background: C.lime, boxShadow: '0 0 6px #32c870' }} />
               <span style={{ fontSize: 9, fontWeight: 800, color: C.lime, fontFamily: 'Archivo,sans-serif', letterSpacing: 0.8 }}>EN DIRECT</span>
             </div>
           )}
         </div>
-        <div style={{ flex: 1, display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 6, minWidth: 0 }}>
-          <TeamEmblem mgr={B.mgr} size={42} />
-          <div style={{ fontFamily: 'Archivo,sans-serif', fontWeight: 800, fontSize: 11.5, textAlign: 'center', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis', maxWidth: '100%' }}>{B.mgr.name}</div>
-          <div style={{ fontSize: 10, fontWeight: 800, color: C.accL, fontFamily: 'Archivo,sans-serif' }}>{rankB === 1 ? '1er' : `${rankB}e`}</div>
+        <div style={{ flex: 1, display: 'flex', flexDirection: 'column', alignItems: 'center', gap: compact ? 3 : 6, minWidth: 0 }}>
+          <TeamEmblem mgr={B.mgr} size={em} />
+          {!compact && <div style={{ fontFamily: 'Archivo,sans-serif', fontWeight: 800, fontSize: 11.5, textAlign: 'center', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis', maxWidth: '100%' }}>{B.mgr.name}</div>}
+          {!compact && <div style={{ fontSize: 10, fontWeight: 800, color: C.accL, fontFamily: 'Archivo,sans-serif' }}>{rankB === 1 ? '1er' : `${rankB}e`}</div>}
         </div>
       </div>
     </div>
@@ -592,28 +616,123 @@ function CountdownPill() {
 function PitchShell({ children, highlight }) {
   return (
     <div style={{
-      position: 'relative', width: '100%', aspectRatio: '1 / 1.05', borderRadius: 18, overflow: 'hidden',
-      background: 'linear-gradient(180deg, rgba(10,20,40,0.85) 0%, rgba(10,20,40,0.3) 18%, #14693e 22%, #0c4a2c 100%)',
-      border: '1px solid rgba(201,146,46,0.2)',
-      boxShadow: highlight ? `inset 0 0 60px ${highlight}22, 0 8px 28px rgba(0,0,0,0.45)` : 'inset 0 0 50px rgba(0,0,0,0.4), 0 8px 28px rgba(0,0,0,0.45)',
+      position: 'relative', width: '100%', margin: '0 auto',
+      aspectRatio: '10 / 13', maxHeight: 'min(50vh, 380px)',
+      borderRadius: 16, overflow: 'hidden',
+      background: 'linear-gradient(180deg, rgba(10,20,40,0.9) 0%, rgba(10,20,40,0.35) 10%, #14693e 14%, #0f5c36 50%, #0c4a2c 86%, rgba(10,20,40,0.35) 94%, rgba(10,20,40,0.9) 100%)',
+      border: '1px solid rgba(201,146,46,0.25)',
+      boxShadow: highlight ? `inset 0 0 50px ${highlight}18, 0 6px 24px rgba(0,0,0,0.4)` : 'inset 0 0 40px rgba(0,0,0,0.35), 0 6px 24px rgba(0,0,0,0.4)',
     }}>
-      <div style={{ position: 'absolute', inset: 0, background: 'repeating-linear-gradient(0deg, rgba(255,255,255,0.04) 0 12%, transparent 12% 24%)' }} />
-      <div style={{ position: 'absolute', top: '18%', left: '50%', transform: 'translateX(-50%)', width: '36%', aspectRatio: '1', borderRadius: '50%', border: '2px solid rgba(255,255,255,0.15)' }} />
-      <div style={{ position: 'absolute', bottom: 0, left: '50%', transform: 'translateX(-50%)', width: '48%', height: '16%', border: '2px solid rgba(255,255,255,0.15)', borderBottom: 'none', borderRadius: '6px 6px 0 0' }} />
+      <div style={{ position: 'absolute', inset: 0, background: 'repeating-linear-gradient(0deg, rgba(255,255,255,0.035) 0 10%, transparent 10% 20%)' }} />
+      {/* but haut */}
+      <div style={{ position: 'absolute', top: 0, left: '50%', transform: 'translateX(-50%)', width: '44%', height: '9%', border: '2px solid rgba(255,255,255,0.18)', borderTop: 'none', borderRadius: '0 0 8px 8px' }} />
+      {/* but bas */}
+      <div style={{ position: 'absolute', bottom: 0, left: '50%', transform: 'translateX(-50%)', width: '44%', height: '9%', border: '2px solid rgba(255,255,255,0.18)', borderBottom: 'none', borderRadius: '8px 8px 0 0' }} />
+      {/* rond central */}
+      <div style={{ position: 'absolute', top: '50%', left: '50%', transform: 'translate(-50%,-50%)', width: '32%', aspectRatio: '1', borderRadius: '50%', border: '2px solid rgba(255,255,255,0.14)' }} />
+      <div style={{ position: 'absolute', top: '50%', left: '50%', transform: 'translate(-50%,-50%)', width: 5, height: 5, borderRadius: '50%', background: 'rgba(255,255,255,0.25)' }} />
       {children}
     </div>
   );
 }
 
-function PitchCardSpot({ player, left, top, w, cardStyle, dim, anim, glow }) {
+function PitchCardSpot({ player, left, top, w, cardStyle, dim, anim, glow, isGk }) {
   if (!player) return null;
   return (
     <div style={{
       position: 'absolute', left: left + '%', top: top + '%', transform: 'translate(-50%,-50%)',
-      opacity: dim ? 0.28 : 1, transition: 'opacity .45s, transform .45s',
-      animation: anim || 'none', filter: glow ? 'drop-shadow(0 0 14px rgba(201,146,46,0.7))' : 'none',
+      opacity: dim ? 0.3 : 1, transition: 'opacity .5s, top .6s ease, left .6s ease',
+      animation: anim || 'none', zIndex: isGk ? 2 : glow ? 4 : 1,
+      filter: glow ? 'drop-shadow(0 0 12px rgba(201,146,46,0.75))' : isGk ? 'drop-shadow(0 0 6px rgba(58,138,255,0.5))' : 'none',
     }}>
       <PlayerCard player={player} w={w} interactive={false} flippable={false} cardStyle={cardStyle} glowPulse={glow} />
+    </div>
+  );
+}
+
+function placeGk(spots, push, team, side, w, opts = {}) {
+  const pos = side === 'def' ? PITCH.GK_DEF : PITCH.GK_ATK;
+  push(team.field.gk, pos.x, pos.y, w, { isGk: true, ...opts });
+}
+
+function MomentStatStrip({ m, micro, atkMgr, defMgr }) {
+  const showStats = micro === 'stats';
+  const showProb = geq(micro, 'prob') && micro !== 'outcome';
+  if (!showStats && !showProb) return null;
+
+  const statBar = (line, color, align) => {
+    if (!line) return null;
+    const pctW = Math.max(10, Math.min(100, line.value));
+    return (
+      <div key={line.label + align} style={{ marginBottom: 6 }}>
+        <div style={{ fontSize: 9, fontWeight: 800, color: C.mut2, fontFamily: 'Archivo,sans-serif', textTransform: 'uppercase', letterSpacing: 0.4, textAlign: align, marginBottom: 3 }}>
+          {line.label}{line.team ? ' · équipe' : ''}{line.malus ? ' · malus' : ''}
+        </div>
+        <div style={{ display: 'flex', alignItems: 'center', gap: 6, flexDirection: align === 'right' ? 'row-reverse' : 'row' }}>
+          <div style={{ flex: 1, height: 6, borderRadius: 999, background: 'rgba(0,0,0,0.4)', overflow: 'hidden' }}>
+            <div style={{ width: pctW + '%', height: '100%', borderRadius: 999, background: `linear-gradient(90deg, ${line.malus ? C.pink : color}, ${line.malus ? C.pink : color}88)`, transition: 'width 1.1s ease' }} />
+          </div>
+          <span style={{ fontFamily: 'Archivo,sans-serif', fontWeight: 900, fontSize: 16, color: line.malus ? C.pink : '#fff', minWidth: 26, textAlign: align }}>{line.malus ? '−' : ''}{line.value}</span>
+        </div>
+      </div>
+    );
+  };
+
+  const pct = micro === 'keeper' ? m.keeperPct : m.duelPct;
+  const pctLabel = micro === 'keeper'
+    ? (m.penalty ? 'Chance de marquer' : 'Chance de but')
+    : 'Réussite de l\'action';
+
+  return (
+    <div style={{ marginTop: 10, padding: '10px 12px', borderRadius: 14, background: 'rgba(0,0,0,0.45)', border: '1px solid ' + C.line }}>
+      <div style={{ fontSize: 9, fontWeight: 800, color: C.accL, letterSpacing: 0.8, fontFamily: 'Archivo,sans-serif', textTransform: 'uppercase', marginBottom: 8, textAlign: 'center' }}>
+        {MICRO_HINTS[micro]}
+      </div>
+      {showStats && (
+        <div style={{ display: 'flex', gap: 10 }}>
+          <div style={{ flex: 1, minWidth: 0 }}>
+            <div style={{ fontSize: 9, fontWeight: 900, color: atkMgr.color, fontFamily: 'Archivo,sans-serif', marginBottom: 4 }}>ATTAQUE</div>
+            {m.atkLines.map((l, i) => statBar(l, atkMgr.color, 'left'))}
+          </div>
+          <div style={{ width: 1, background: C.line, flexShrink: 0 }} />
+          <div style={{ flex: 1, minWidth: 0 }}>
+            <div style={{ fontSize: 9, fontWeight: 900, color: defMgr.color, fontFamily: 'Archivo,sans-serif', marginBottom: 4, textAlign: 'right' }}>DÉFENSE</div>
+            {m.defLines.map((l, i) => statBar(l, defMgr.color, 'right'))}
+          </div>
+        </div>
+      )}
+      {showProb && (
+        <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 12, marginTop: showStats ? 8 : 0, paddingTop: showStats ? 8 : 0, borderTop: showStats ? '1px solid ' + C.line : 'none' }}>
+          <div style={{ textAlign: 'center' }}>
+            <div style={{ fontFamily: 'Archivo,sans-serif', fontWeight: 900, fontSize: 38, color: m.penalty || micro === 'keeper' ? C.gold : atkMgr.color, lineHeight: 1 }}>
+              <AnimatedNumber to={pct} go dur={1100} />%
+            </div>
+            <div style={{ fontSize: 10, color: C.mut2, fontWeight: 700, marginTop: 3 }}>{pctLabel}</div>
+          </div>
+        </div>
+      )}
+    </div>
+  );
+}
+
+function MomentProgress({ ai, micro, total }) {
+  const steps = ['intro', 'cards', 'stats', 'prob', 'suspense', 'outcome'];
+  const idx = steps.indexOf(micro === 'duel' || micro === 'keeper' ? 'suspense' : micro);
+  return (
+    <div style={{ marginBottom: 8, padding: '0 2px' }}>
+      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 6 }}>
+        <span style={{ fontSize: 10, fontWeight: 800, color: C.mut2, fontFamily: 'Archivo,sans-serif' }}>Moment {ai + 1} / {total}</span>
+        <span style={{ fontSize: 10, fontWeight: 800, color: C.accL, fontFamily: 'Archivo,sans-serif' }}>{MICRO_HINTS[micro]}</span>
+      </div>
+      <div style={{ display: 'flex', gap: 3 }}>
+        {steps.map((s, i) => (
+          <div key={s} style={{
+            flex: 1, height: 3, borderRadius: 999,
+            background: i <= idx ? C.acc : 'rgba(255,255,255,0.1)',
+            transition: 'background .4s',
+          }} />
+        ))}
+      </div>
     </div>
   );
 }
@@ -625,48 +744,58 @@ function MatchPitchScene({ m, micro, atkTeam, defTeam, atkMgr, defMgr, cardStyle
   const outcome = micro === 'outcome';
   const type = m.type;
   const ec = EVENT_COLORS[type] || C.acc;
-  const wSmall = 48, wMed = 58, wBig = 86;
+  const wSm = 36, wMd = 44, wLg = 58, wGk = 38;
   const atkGlow = outcome && m.scored;
   const defGlow = outcome && !m.scored && (m.penalty || m.won);
-  const clashAnim = clash ? 'duelClash .55s ease-in-out infinite' : undefined;
-  const winAnim = outcome ? (atkGlow ? 'duelWin .65s ease' : defGlow ? 'duelWin .65s ease' : undefined) : undefined;
+  const clashAnim = clash ? 'duelClash .6s ease-in-out infinite' : undefined;
+  const winAnim = outcome ? 'duelWin .7s ease' : undefined;
 
   const spots = [];
   const push = (player, left, top, w, opts = {}) => {
     if (!player) return;
-    spots.push({ key: player.id + left + top, player, left, top, w: w || wSmall, ...opts });
+    spots.push({ key: player.id + '-' + left + '-' + top, player, left, top, w: w || wSm, ...opts });
   };
 
+  // Gardien défenseur TOUJOURS dans les buts (bas)
+  const defGk = () => placeGk(spots, push, defTeam, 'def', wGk, { dim: suspense && !clash });
+  const atkGk = () => placeGk(spots, push, atkTeam, 'atk', wGk, { dim: true });
+
   if (!showCards) {
-    // empty pitch during intro
+    defGk(); atkGk();
   } else if (type === 'possession') {
-    const atkAll = [atkTeam.field.gk, ...atkTeam.field.outfield];
-    const defAll = [defTeam.field.gk, ...defTeam.field.outfield];
-    const atkX = [22, 42, 58, 78];
-    const defX = [28, 48, 52, 72];
-    atkAll.forEach((p, i) => push(p, atkX[i], 28 + (i % 2) * 8, wSmall));
-    defAll.forEach((p, i) => push(p, defX[i], 68 - (i % 2) * 8, wSmall, { dim: suspense }));
+    atkGk();
+    const atkO = atkTeam.field.outfield;
+    atkO.forEach((p, i) => push(p, [28, 44, 56, 72][i], [38, 46, 46, 38][i], wSm));
+    defGk();
+    defTeam.field.outfield.forEach((p, i) => push(p, [32, 50, 68][i], [58, 66, 58][i], wSm, { dim: suspense }));
   } else if (type === 'corner') {
     const taker = m.atkPlayer;
     const others = atkTeam.field.outfield.filter(p => p.id !== taker.id);
-    push(taker, 94, 10, wMed, { anim: clashAnim, glow: atkGlow });
-    others.forEach((p, i) => push(p, [38, 52, 66][i] || 50, [20, 24, 20][i] || 22, wSmall));
-    push(defTeam.field.gk, 50, 32, wSmall, { dim: !clash });
-    defTeam.field.outfield.forEach((p, i) => push(p, [36, 50, 64][i] || 50, [26, 22, 26][i] || 24, wSmall, { dim: suspense && !clash }));
+    atkGk();
+    push(taker, 90, 78, wMd, { anim: clashAnim, glow: atkGlow });
+    others.forEach((p, i) => push(p, [38, 50, 62][i] || 50, [66, 70, 66][i] || 68, wSm));
+    defGk();
+    defTeam.field.outfield.forEach((p, i) => push(p, [34, 50, 66][i] || 50, [72, 68, 72][i] || 70, wSm, { dim: suspense && !clash }));
   } else if (type === 'contre') {
-    push(m.atkPlayer, 50, 22, wMed, { anim: clashAnim, glow: atkGlow });
+    atkGk();
+    push(m.atkPlayer, 50, 48, wMd, { anim: clashAnim, glow: atkGlow });
     const excluded = m.defExcluded;
+    defGk();
     defTeam.field.outfield.forEach(p => {
-      if (excluded && p.id === excluded.id) push(p, 8, 50, wSmall, { dim: true });
-      else push(p, p.id === m.defPlayer?.id ? 58 : 42, 38, wSmall, { anim: p.id === m.defPlayer?.id ? clashAnim : undefined, glow: defGlow && p.id === m.defPlayer?.id });
+      if (excluded && p.id === excluded.id) push(p, 6, 50, wSm, { dim: true });
+      else push(p, p.id === m.defPlayer?.id ? 62 : 38, 62, wSm, {
+        anim: p.id === m.defPlayer?.id ? clashAnim : undefined,
+        glow: defGlow && p.id === m.defPlayer?.id,
+      });
     });
-    push(defTeam.field.gk, 50, 30, wSmall);
   } else if (type === 'duel') {
-    push(m.atkPlayer, 36, 50, wBig, { anim: clash ? clashAnim : winAnim, glow: atkGlow });
-    push(m.defPlayer, 64, 50, wBig, { anim: clash ? clashAnim : winAnim, glow: defGlow });
+    atkGk(); defGk();
+    push(m.atkPlayer, 38, 50, wLg, { anim: clash ? clashAnim : winAnim, glow: atkGlow });
+    push(m.defPlayer, 62, 50, wLg, { anim: clash ? clashAnim : winAnim, glow: defGlow });
   } else if (type === 'penalty' || m.penalty) {
-    push(m.atkPlayer, 50, 72, wBig, { anim: clash || suspense ? clashAnim : winAnim, glow: atkGlow });
-    push(m.defPlayer || defTeam.field.gk, 50, 26, wMed, { anim: clash ? clashAnim : winAnim, glow: defGlow });
+    atkGk();
+    push(m.atkPlayer, PITCH.PEN_SPOT.x, PITCH.PEN_SPOT.y, wLg, { anim: clash || suspense ? clashAnim : winAnim, glow: atkGlow });
+    push(m.defPlayer || defTeam.field.gk, PITCH.GK_DEF.x, PITCH.GK_DEF.y, wGk, { isGk: true, anim: clash ? clashAnim : winAnim, glow: defGlow });
   }
 
   const banner = outcome
@@ -674,28 +803,30 @@ function MatchPitchScene({ m, micro, atkTeam, defTeam, atkMgr, defMgr, cardStyle
     : null;
 
   return (
-    <div style={{ flex: 1, display: 'flex', flexDirection: 'column', minHeight: 0 }}>
-      <div style={{ textAlign: 'center', marginBottom: 8 }}>
-        <span style={{ fontFamily: 'Archivo,sans-serif', fontWeight: 900, fontSize: 12, letterSpacing: 0.8, color: ec }}>{m.label.toUpperCase()}</span>
+    <div style={{ display: 'flex', flexDirection: 'column', minHeight: 0 }}>
+      <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 8, marginBottom: 6 }}>
+        <GzIcon name={m.icon} size={16} color={ec} />
+        <span style={{ fontFamily: 'Archivo,sans-serif', fontWeight: 900, fontSize: 13, letterSpacing: 0.6, color: ec }}>{m.label.toUpperCase()}</span>
+        <span style={{ fontSize: 10, color: C.mut2, fontWeight: 700 }}>· {atkMgr.name}</span>
       </div>
       <PitchShell highlight={ec}>
         {spots.map(s => (
           <PitchCardSpot key={s.key} player={s.player} left={s.left} top={s.top} w={s.w} cardStyle={cardStyle}
-            dim={s.dim} anim={s.anim} glow={s.glow} />
+            dim={s.dim} anim={s.anim} glow={s.glow} isGk={s.isGk} />
         ))}
         {outcome && banner && (
-          <div style={{ position: 'absolute', inset: 0, display: 'flex', alignItems: 'center', justifyContent: 'center', pointerEvents: 'none', zIndex: 5, background: 'rgba(0,0,0,0.35)' }}>
+          <div style={{ position: 'absolute', inset: 0, display: 'flex', alignItems: 'center', justifyContent: 'center', pointerEvents: 'none', zIndex: 8, background: 'rgba(0,0,0,0.4)' }}>
             <div style={{
-              padding: '12px 28px', borderRadius: 16, animation: 'scorePop .5s',
-              background: m.scored ? `linear-gradient(135deg, ${atkMgr.color}, ${C.acc})` : 'rgba(12,10,22,0.92)',
+              padding: '14px 32px', borderRadius: 16, animation: 'scorePop .55s',
+              background: m.scored ? `linear-gradient(135deg, ${atkMgr.color}, ${C.acc})` : 'rgba(12,10,22,0.94)',
               border: m.scored ? 'none' : '1.5px solid ' + C.line,
-              boxShadow: m.scored ? `0 8px 32px ${atkMgr.color}88` : 'none',
             }}>
-              <div style={{ fontFamily: 'Archivo,sans-serif', fontWeight: 900, fontSize: 32, letterSpacing: 1, color: m.scored ? '#160b02' : C.txt }}>{banner}</div>
+              <div style={{ fontFamily: 'Archivo,sans-serif', fontWeight: 900, fontSize: 30, letterSpacing: 1, color: m.scored ? '#160b02' : C.txt }}>{banner}</div>
             </div>
           </div>
         )}
       </PitchShell>
+      <MomentStatStrip m={m} micro={micro} atkMgr={atkMgr} defMgr={defMgr} />
     </div>
   );
 }
@@ -869,17 +1000,22 @@ function MatchFlow({ midA, midB, replay, seed, bonusA: initialBonusA, onExit }) 
   const defTeam = m ? (m.atk === 'A' ? B : A) : B;
   const commentary = phase !== 'play' ? 'Tirage des moments décisifs…'
     : micro === 'outcome' ? m.comments.result
-    : (micro === 'duel' || micro === 'keeper') ? m.comments.mid
+    : micro === 'stats' ? `${m.aLabel} contre ${m.dLabel}`
+    : micro === 'prob' ? `${m.duelPct}% de chances de réussir cette action`
+    : micro === 'keeper' ? `${m.keeperPct}% de chances de marquer`
+    : (micro === 'duel' || micro === 'suspense') ? m.comments.mid
     : m.comments.reveal;
 
   const minute = phase === 'play' ? `${12 + ai * 9}'` : "0'";
 
   return (
-    <div style={{ height: '100%', display: 'flex', flexDirection: 'column', paddingTop: 54 }} onClick={phase === 'play' ? skip : undefined}>
+    <div style={{ height: '100%', display: 'flex', flexDirection: 'column', paddingTop: 48 }} onClick={phase === 'play' ? skip : undefined}>
       <MatchTopBar onBack={onExit} right={phase === 'play' ? (
         <button onClick={e => { e.stopPropagation(); skip(); }} style={{ padding: '7px 11px', borderRadius: 11, border: '1px solid ' + C.line, background: C.surf2, color: C.mut, fontSize: 11, fontWeight: 800, fontFamily: 'Archivo,sans-serif', cursor: 'pointer' }}>Passer</button>
       ) : replay ? <Chip color={C.cyan}>Replay</Chip> : null} />
-      <PremiumScoreboard A={A} B={B} sA={sA} sB={sB} minute={minute} bump={bump} live={phase === 'play'} />
+      <div style={{ padding: '0 12px' }}>
+        <PremiumScoreboard A={A} B={B} sA={sA} sB={sB} minute={minute} bump={bump} live={phase === 'play'} compact={phase === 'play'} />
+      </div>
 
       {phase === 'deal' ? (
         <div style={{ flex: 1, display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', gap: 10, padding: '0 16px' }}>
@@ -916,14 +1052,15 @@ function MatchFlow({ midA, midB, replay, seed, bonusA: initialBonusA, onExit }) 
           {dealt >= 6 && <div style={{ fontFamily: 'Archivo,sans-serif', fontWeight: 900, fontSize: 17, color: C.acc, animation: 'scorePop .5s', display: 'flex', alignItems: 'center', gap: 6 }}><GzIcon name="bolt" size={18} color={C.accL} /> Que le match commence !</div>}
         </div>
       ) : (
-        <div style={{ flex: 1, display: 'flex', flexDirection: 'column', padding: '4px 16px 12px', minHeight: 0 }}>
+        <div style={{ flex: 1, display: 'flex', flexDirection: 'column', padding: '0 12px 10px', minHeight: 0, overflowY: 'auto', WebkitOverflowScrolling: 'touch' }}>
+          <MomentProgress ai={ai} micro={micro} total={6} />
           <MatchPitchScene
             m={m} micro={micro}
             atkTeam={atkTeam} defTeam={defTeam}
             atkMgr={atkMgr} defMgr={defMgr}
             cardStyle={cardStyle}
           />
-          <div style={{ marginTop: 8 }}><CommentaryBar text={commentary} /></div>
+          <div style={{ marginTop: 8, flexShrink: 0 }}><CommentaryBar text={commentary} /></div>
         </div>
       )}
     </div>
