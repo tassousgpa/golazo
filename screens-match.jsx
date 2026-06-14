@@ -4,6 +4,12 @@
 const ORDER = ['intro', 'cards', 'stats', 'prob', 'suspense', 'duel', 'shot', 'keeper', 'outcome'];
 const geq = (micro, s) => ORDER.indexOf(micro) >= ORDER.indexOf(s);
 
+const MATCH_MICRO_LABELS = {
+  intro: 'Préparation', cards: 'Joueurs en jeu', stats: 'Calcul des stats',
+  prob: 'Probabilité', suspense: 'Suspense…', duel: 'Duel', shot: 'Frappe',
+  keeper: 'Gardien', outcome: 'Résultat',
+};
+
 function seqFor(m) {
   const base = [['intro', 850], ['cards', 800], ['stats', 1200], ['prob', 900], ['suspense', 520]];
   if (m.penalty) return [...base, ['keeper', 900], ['outcome', 1450]];
@@ -612,12 +618,6 @@ function Theater({ m, micro, atkMgr, defMgr }) {
     ? (m.scored ? 'BUT !' : (m.penalty || m.won) ? 'ARRÊT !' : 'STOPPÉ')
     : null;
 
-  const phaseLabel = {
-    intro: 'Préparation', cards: 'Joueurs en jeu', stats: 'Calcul des stats',
-    prob: 'Probabilité', suspense: 'Suspense…', duel: 'Duel', shot: 'Frappe',
-    keeper: 'Gardien', outcome: 'Résultat',
-  }[micro] || '';
-
   return (
     <div style={{ flex: 1, display: 'flex', flexDirection: 'column', position: 'relative', overflowY: 'auto' }}>
       {/* event banner — EventCard-inspired horizontal strip */}
@@ -737,6 +737,13 @@ function MatchFlow({ midA, midB, replay, seed, onExit }) {
   if (phase === 'result') return <ResultScreen sim={sim} sA={sim.scoreA} sB={sim.scoreB} replay={replay} onExit={onExit} onReplay={() => { setAi(0); setPhase('deal'); }} />;
 
   const m = phase === 'play' ? sim.moments[ai] : null;
+  if (phase === 'play' && !m) {
+    return (
+      <div style={{ height: '100%', display: 'flex', alignItems: 'center', justifyContent: 'center', paddingTop: 54 }}>
+        <Btn onClick={onExit}>Retour</Btn>
+      </div>
+    );
+  }
   const atkMgr = m ? (m.atk === 'A' ? A.mgr : B.mgr) : A.mgr;
   const defMgr = m ? (m.atk === 'A' ? B.mgr : A.mgr) : B.mgr;
   const bump = (phase === 'play' && micro === 'outcome' && m.scored) ? m.atk : null;
@@ -747,6 +754,7 @@ function MatchFlow({ midA, midB, replay, seed, onExit }) {
     : m.comments.reveal;
 
   const minute = phase === 'play' ? `${12 + ai * 9}'` : "0'";
+  const phaseLabel = phase === 'play' ? (MATCH_MICRO_LABELS[micro] || '') : '';
 
   return (
     <div style={{ height: '100%', display: 'flex', flexDirection: 'column', paddingTop: 54 }} onClick={phase === 'play' ? skip : undefined}>
