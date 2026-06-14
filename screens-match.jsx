@@ -44,13 +44,249 @@ function ProbRing({ pct, label, color }) {
 }
 
 function StatLineV({ line, go, align = 'left' }) {
-  const has = line.bonus > 0;
-  const from = has ? line.value - line.bonus : 0;
+  return <DuelStatRow line={line} go={go} align={align} />;
+}
+
+// ─── Match stats clarity system ───
+function ImpactLegend({ compact }) {
+  const items = [
+    { color: C.accL, border: 'rgba(201,146,46,0.4)', label: 'Joueur', desc: 'stat individuelle' },
+    { color: C.cyan, border: 'rgba(58,138,255,0.4)', label: 'Équipe', desc: 'moyenne du terrain' },
+    { color: C.lime, border: 'rgba(50,200,112,0.4)', label: '+N', desc: 'boost Coupe du Monde' },
+    { color: C.pink, border: 'rgba(191,48,144,0.4)', label: '−', desc: 'malus de situation' },
+  ];
   return (
-    <div style={{ display: 'flex', alignItems: 'center', gap: 7, justifyContent: align === 'right' ? 'flex-end' : 'flex-start', flexDirection: align === 'right' ? 'row-reverse' : 'row' }}>
-      <span style={{ fontFamily: 'Archivo,sans-serif', fontWeight: 800, fontSize: 10.5, color: line.malus ? C.pink : C.mut, minWidth: 64, textAlign: align }}>{line.label}</span>
-      <span style={{ fontFamily: 'Archivo,sans-serif', fontWeight: 900, fontSize: 17, color: line.malus ? C.pink : '#fff' }}>{line.malus ? '−' : ''}<AnimatedNumber from={from} to={line.value} go={go} dur={950} /></span>
-      {has && <span style={{ fontFamily: 'Archivo,sans-serif', fontWeight: 900, fontSize: 12, color: C.lime, animation: go ? 'sheetUp .5s .3s both' : 'none' }}>+{line.bonus}</span>}
+    <div style={{
+      display: 'flex', flexWrap: 'wrap', gap: compact ? 6 : 8, padding: compact ? '8px 10px' : '10px 12px',
+      borderRadius: 12, background: 'rgba(0,0,0,0.28)', border: '1px solid ' + C.line, marginBottom: compact ? 8 : 12,
+    }}>
+      {items.map(it => (
+        <div key={it.label} style={{ display: 'flex', alignItems: 'center', gap: 6, fontSize: compact ? 9.5 : 10 }}>
+          <span style={{ width: 8, height: 8, borderRadius: 2, background: it.color + '44', border: `1.5px solid ${it.border}`, flexShrink: 0 }} />
+          <span style={{ fontFamily: 'Archivo,sans-serif', fontWeight: 800, color: it.color }}>{it.label}</span>
+          <span style={{ color: C.mut2 }}>{it.desc}</span>
+        </div>
+      ))}
+    </div>
+  );
+}
+
+function StatTypeTag({ team, malus }) {
+  const label = malus ? 'Malus' : team ? 'Équipe' : 'Joueur';
+  const color = malus ? C.pink : team ? C.cyan : C.accL;
+  return (
+    <span style={{
+      fontSize: 8, fontWeight: 900, letterSpacing: 0.5, fontFamily: 'Archivo,sans-serif',
+      padding: '2px 5px', borderRadius: 4, textTransform: 'uppercase',
+      background: color + '18', color, border: `1px solid ${color}44`, flexShrink: 0,
+    }}>{label}</span>
+  );
+}
+
+function ImpactChip({ bonus, malus, reason }) {
+  if (!bonus && !malus) return null;
+  const color = malus ? C.pink : C.lime;
+  const text = malus ? 'Malus situation' : `+${bonus} ${reason ? reason.split(' ').slice(0, 2).join(' ') : 'CDM'}`;
+  return (
+    <span style={{
+      display: 'inline-flex', alignItems: 'center', gap: 3, fontSize: 9, fontWeight: 800,
+      fontFamily: 'Archivo,sans-serif', padding: '2px 6px', borderRadius: 999,
+      background: color + '18', color, border: `1px solid ${color}44`, whiteSpace: 'nowrap',
+    }}>
+      {malus ? <GzIcon name="bolt" size={9} color={color} /> : <GzIcon name="fire" size={9} color={color} />}
+      {text}
+    </span>
+  );
+}
+
+function DuelStatRow({ line, go, align = 'left' }) {
+  const hasBonus = line.bonus > 0;
+  const base = hasBonus ? line.value - line.bonus : line.value;
+  const pct = Math.max(8, Math.min(100, line.value));
+  const barColor = line.malus ? C.pink : line.team ? C.cyan : (STAT_COL[line.key] || C.accL);
+  const isRight = align === 'right';
+  return (
+    <div style={{
+      padding: '6px 8px', borderRadius: 10, marginBottom: 5,
+      background: line.team ? 'rgba(58,138,255,0.06)' : 'rgba(201,146,46,0.06)',
+      borderLeft: isRight ? 'none' : `3px solid ${line.malus ? C.pink : line.team ? C.cyan : C.acc}`,
+      borderRight: isRight ? `3px solid ${line.malus ? C.pink : line.team ? C.cyan : C.acc}` : 'none',
+    }}>
+      <div style={{ display: 'flex', alignItems: 'center', gap: 5, marginBottom: 4, flexDirection: isRight ? 'row-reverse' : 'row' }}>
+        <StatTypeTag team={line.team} malus={line.malus} />
+        <span style={{ fontFamily: 'Archivo,sans-serif', fontWeight: 800, fontSize: 10, color: line.malus ? C.pink : C.mut, flex: 1, textAlign: isRight ? 'right' : 'left' }}>{line.label}</span>
+      </div>
+      <div style={{ display: 'flex', alignItems: 'center', gap: 8, flexDirection: isRight ? 'row-reverse' : 'row' }}>
+        <div style={{ flex: 1, height: 6, borderRadius: 999, background: 'rgba(0,0,0,0.35)', overflow: 'hidden' }}>
+          <div style={{ width: pct + '%', height: '100%', borderRadius: 999, background: `linear-gradient(90deg, ${barColor}, ${barColor}aa)`, transition: 'width .8s' }} />
+        </div>
+        <div style={{ textAlign: isRight ? 'left' : 'right', minWidth: 52 }}>
+          <span style={{ fontFamily: 'Archivo,sans-serif', fontWeight: 900, fontSize: 15, color: line.malus ? C.pink : '#fff' }}>
+            {line.malus ? '−' : ''}<AnimatedNumber from={hasBonus ? base : 0} to={line.value} go={go} dur={950} />
+          </span>
+          {hasBonus && <div style={{ fontSize: 9, color: C.mut2, fontWeight: 700 }}>base {base}</div>}
+        </div>
+      </div>
+      {(hasBonus || line.malus) && (
+        <div style={{ marginTop: 4, display: 'flex', justifyContent: isRight ? 'flex-end' : 'flex-start' }}>
+          <ImpactChip bonus={line.bonus} malus={line.malus} />
+        </div>
+      )}
+    </div>
+  );
+}
+
+function DuelStatBlock({ lines, go, align, title }) {
+  const player = lines.filter(l => !l.team);
+  const team = lines.filter(l => l.team);
+  if (!lines.length) return null;
+  return (
+    <div style={{ marginBottom: 8 }}>
+      {title && <div style={{ fontSize: 9, fontWeight: 800, color: C.mut2, letterSpacing: 0.8, fontFamily: 'Archivo,sans-serif', textTransform: 'uppercase', marginBottom: 6, textAlign: align === 'right' ? 'right' : 'left' }}>{title}</div>}
+      {player.length > 0 && (
+        <div style={{ marginBottom: team.length ? 6 : 0 }}>
+          <div style={{ fontSize: 8.5, fontWeight: 800, color: C.accL, letterSpacing: 0.6, marginBottom: 4, textAlign: align === 'right' ? 'right' : 'left', fontFamily: 'Archivo,sans-serif' }}>JOUEUR</div>
+          {player.map((l, i) => <DuelStatRow key={i} line={l} go={go} align={align} />)}
+        </div>
+      )}
+      {team.length > 0 && (
+        <div>
+          <div style={{ fontSize: 8.5, fontWeight: 800, color: C.cyan, letterSpacing: 0.6, marginBottom: 4, textAlign: align === 'right' ? 'right' : 'left', fontFamily: 'Archivo,sans-serif' }}>ÉQUIPE</div>
+          {team.map((l, i) => <DuelStatRow key={i} line={l} go={go} align={align} />)}
+        </div>
+      )}
+    </div>
+  );
+}
+
+function ActiveImpacts({ atkPlayer, defPlayer, atkLines, defLines }) {
+  const chips = [];
+  [atkPlayer, defPlayer].forEach(p => {
+    if (p?.boost) chips.push({ key: p.id, label: `${p.name.split(' ').pop()} +${p.boost.amount} ${STAT_LABEL[p.boost.stat]}`, color: C.lime });
+  });
+  atkLines.concat(defLines).filter(l => l.malus).forEach((l, i) => {
+    chips.push({ key: 'm' + i, label: `${l.label} : malus`, color: C.pink });
+  });
+  if (!chips.length) return null;
+  return (
+    <Surface style={{ padding: '8px 10px', marginTop: 8, background: 'rgba(0,0,0,0.25)' }}>
+      <div style={{ fontSize: 8.5, fontWeight: 800, color: C.mut2, letterSpacing: 0.8, fontFamily: 'Archivo,sans-serif', textTransform: 'uppercase', marginBottom: 6 }}>Impacts actifs sur cette action</div>
+      <div style={{ display: 'flex', flexWrap: 'wrap', gap: 6 }}>
+        {chips.map(c => (
+          <span key={c.key} style={{ fontSize: 9.5, fontWeight: 800, fontFamily: 'Archivo,sans-serif', padding: '4px 8px', borderRadius: 999, background: c.color + '15', color: c.color, border: `1px solid ${c.color}44` }}>{c.label}</span>
+        ))}
+      </div>
+    </Surface>
+  );
+}
+
+function ActionStatsCompare({ m, go, atkMgr, defMgr }) {
+  return (
+    <div style={{ marginTop: 8 }}>
+      <ImpactLegend compact />
+      <div style={{ display: 'flex', gap: 8 }}>
+        <div style={{ flex: 1, minWidth: 0 }}>
+          <div style={{ display: 'flex', alignItems: 'center', gap: 6, marginBottom: 6 }}>
+            <Avatar mgr={atkMgr} size={20} />
+            <span style={{ fontFamily: 'Archivo,sans-serif', fontWeight: 900, fontSize: 11, color: atkMgr.color }}>ATTAQUE</span>
+          </div>
+          <DuelStatBlock lines={m.atkLines} go={go} align="left" />
+        </div>
+        <div style={{ width: 1, background: C.line, flexShrink: 0 }} />
+        <div style={{ flex: 1, minWidth: 0 }}>
+          <div style={{ display: 'flex', alignItems: 'center', gap: 6, marginBottom: 6, justifyContent: 'flex-end' }}>
+            <span style={{ fontFamily: 'Archivo,sans-serif', fontWeight: 900, fontSize: 11, color: defMgr.color }}>DÉFENSE</span>
+            <Avatar mgr={defMgr} size={20} />
+          </div>
+          <DuelStatBlock lines={m.defLines} go={go} align="right" />
+        </div>
+      </div>
+      <ActiveImpacts atkPlayer={m.atkPlayer} defPlayer={m.defPlayer} atkLines={m.atkLines} defLines={m.defLines} />
+    </div>
+  );
+}
+
+function StatsSectionTitle({ icon, title, subtitle }) {
+  return (
+    <div style={{ marginBottom: 10 }}>
+      <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+        <IconBadge name={icon} size={28} iconSize={14} />
+        <div>
+          <div style={{ fontFamily: 'Archivo,sans-serif', fontWeight: 900, fontSize: 13, color: C.txt }}>{title}</div>
+          {subtitle && <div style={{ color: C.mut2, fontSize: 11, marginTop: 1 }}>{subtitle}</div>}
+        </div>
+      </div>
+    </div>
+  );
+}
+
+function TeamStatsCompare({ A, B }) {
+  const keys = ['vit', 'tir', 'dri', 'pas', 'phy', 'def'];
+  return (
+    <Surface style={{ padding: 14, marginBottom: 12 }}>
+      <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: 10, fontSize: 10, fontWeight: 800, fontFamily: 'Archivo,sans-serif' }}>
+        <span style={{ color: A.mgr.color }}>{A.mgr.name}</span>
+        <span style={{ color: C.mut2 }}>Équipe vs équipe</span>
+        <span style={{ color: B.mgr.color }}>{B.mgr.name}</span>
+      </div>
+      {keys.map(k => (
+        <div key={k} style={{ marginBottom: 10 }}>
+          <div style={{ fontSize: 9, color: C.mut2, fontWeight: 800, marginBottom: 4, fontFamily: 'Archivo,sans-serif', letterSpacing: 0.4 }}>{STAT_LABEL[k]} · moyenne terrain</div>
+          <VsBar a={Math.round(A.agg[k])} b={Math.round(B.agg[k])} aLabel={String(Math.round(A.agg[k]))} bLabel={String(Math.round(B.agg[k]))} aColor={A.mgr.color} bColor={B.mgr.color} height={8} />
+        </div>
+      ))}
+      <div style={{ display: 'flex', justifyContent: 'space-between', marginTop: 12, paddingTop: 10, borderTop: '1px solid ' + C.line }}>
+        <div style={{ textAlign: 'center' }}>
+          <div style={{ fontFamily: 'Archivo,sans-serif', fontWeight: 900, fontSize: 22, color: A.mgr.color }}>{A.agg.ovr}</div>
+          <div style={{ fontSize: 9, color: C.mut2, fontWeight: 800 }}>OVR ÉQUIPE</div>
+        </div>
+        <div style={{ fontSize: 10, color: C.mut2, alignSelf: 'center', fontWeight: 800 }}>vs</div>
+        <div style={{ textAlign: 'center' }}>
+          <div style={{ fontFamily: 'Archivo,sans-serif', fontWeight: 900, fontSize: 22, color: B.mgr.color }}>{B.agg.ovr}</div>
+          <div style={{ fontSize: 9, color: C.mut2, fontWeight: 800 }}>OVR ÉQUIPE</div>
+        </div>
+      </div>
+    </Surface>
+  );
+}
+
+function PlayerRosterStats({ team, label }) {
+  const { gk, outfield } = team.field;
+  const players = [gk, ...outfield];
+  return (
+    <Surface style={{ padding: 12, marginBottom: 10 }}>
+      <div style={{ fontFamily: 'Archivo,sans-serif', fontWeight: 900, fontSize: 12, color: team.mgr.color, marginBottom: 10 }}>{label || team.mgr.name}</div>
+      {players.map(p => {
+        const boost = p.boost;
+        const mainKey = p.pos === 'GK' ? 'def' : ({ ATT: 'tir', MID: 'pas', DEF: 'def' }[p.pos] || 'vit');
+        return (
+          <div key={p.id} style={{ display: 'flex', alignItems: 'center', gap: 10, padding: '8px 0', borderBottom: '1px solid ' + C.line }}>
+            <MiniCard player={p} w={36} />
+            <div style={{ flex: 1, minWidth: 0 }}>
+              <div style={{ fontFamily: 'Archivo,sans-serif', fontWeight: 800, fontSize: 12 }}>{p.name.split(' ').pop()}</div>
+              <div style={{ fontSize: 10, color: C.mut2 }}>{POS[p.pos].full} · OVR {p.ovr}</div>
+            </div>
+            <div style={{ textAlign: 'right' }}>
+              <div style={{ fontFamily: 'Archivo,sans-serif', fontWeight: 900, fontSize: 16, color: STAT_COL[mainKey] || C.txt }}>{p.stats[mainKey]}</div>
+              <div style={{ fontSize: 9, color: C.mut2, fontWeight: 700 }}>{STAT_ABBR[mainKey]}</div>
+              {boost && <ImpactChip bonus={boost.amount} reason={STAT_LABEL[boost.stat]} />}
+            </div>
+          </div>
+        );
+      })}
+    </Surface>
+  );
+}
+
+function MatchStatsPanel({ A, B }) {
+  return (
+    <div>
+      <ImpactLegend />
+      <StatsSectionTitle icon="shield" title="Stats équipe" subtitle="Moyennes calculées sur les 4 joueurs sur le terrain" />
+      <TeamStatsCompare A={A} B={B} />
+      <StatsSectionTitle icon="ball" title="Stats joueurs" subtitle="Stat clé par poste + boosts Coupe du Monde actifs" />
+      <PlayerRosterStats team={A} />
+      <PlayerRosterStats team={B} />
     </div>
   );
 }
@@ -267,47 +503,54 @@ function HighlightsTimeline({ moments, sim, preview }) {
   );
 }
 
-function MatchStatsPanel({ A, B }) {
-  const keys = ['vit', 'tir', 'dri', 'pas', 'phy', 'def'];
-  return (
-    <Surface style={{ padding: 14 }}>
-      {keys.map(k => (
-        <div key={k} style={{ marginBottom: 12 }}>
-          <VsBar a={Math.round(A.agg[k])} b={Math.round(B.agg[k])} aLabel={STAT_LABEL[k]} bLabel="" aColor={A.mgr.color} bColor={B.mgr.color} height={8} />
-        </div>
-      ))}
-    </Surface>
-  );
-}
-
 function MatchDuelPanel({ A, B }) {
+  const roleRow = (label, pa, pb, statKey) => {
+    const ba = pa.boost && pa.boost.stat === statKey ? pa.boost.amount : 0;
+    const bb = pb.boost && pb.boost.stat === statKey ? pb.boost.amount : 0;
+    return (
+      <div key={label} style={{ padding: '10px 0', borderBottom: '1px solid ' + C.line }}>
+        <div style={{ fontSize: 9, fontWeight: 800, color: C.mut2, letterSpacing: 0.6, fontFamily: 'Archivo,sans-serif', textTransform: 'uppercase', marginBottom: 8, textAlign: 'center' }}>{label}</div>
+        <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+          <div style={{ flex: 1, textAlign: 'center' }}>
+            <MiniCard player={pa} w={40} />
+            <div style={{ fontFamily: 'Archivo,sans-serif', fontWeight: 800, fontSize: 11, marginTop: 4 }}>{pa.name.split(' ').pop()}</div>
+            <div style={{ fontFamily: 'Archivo,sans-serif', fontWeight: 900, fontSize: 16, color: A.mgr.color, marginTop: 2 }}>{pa.stats[statKey]}{ba ? <span style={{ fontSize: 11, color: C.lime }}> +{ba}</span> : ''}</div>
+            <StatTypeTag team={false} />
+          </div>
+          <div style={{ fontSize: 10, color: C.mut2, fontWeight: 800 }}>{STAT_ABBR[statKey]}</div>
+          <div style={{ flex: 1, textAlign: 'center' }}>
+            <MiniCard player={pb} w={40} />
+            <div style={{ fontFamily: 'Archivo,sans-serif', fontWeight: 800, fontSize: 11, marginTop: 4 }}>{pb.name.split(' ').pop()}</div>
+            <div style={{ fontFamily: 'Archivo,sans-serif', fontWeight: 900, fontSize: 16, color: B.mgr.color, marginTop: 2 }}>{pb.stats[statKey]}{bb ? <span style={{ fontSize: 11, color: C.lime }}> +{bb}</span> : ''}</div>
+            <StatTypeTag team={false} />
+          </div>
+        </div>
+      </div>
+    );
+  };
   return (
     <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
+      <ImpactLegend compact />
       <Surface style={{ padding: 16, display: 'flex', alignItems: 'center', justifyContent: 'space-around' }}>
         <div style={{ textAlign: 'center' }}>
           <TeamEmblem mgr={A.mgr} size={48} />
           <div style={{ fontFamily: 'Archivo,sans-serif', fontWeight: 900, fontSize: 28, color: A.mgr.color, marginTop: 8 }}>{A.agg.ovr}</div>
-          <div style={{ color: C.mut2, fontSize: 10, fontWeight: 800 }}>OVR</div>
+          <StatTypeTag team />
+          <div style={{ color: C.mut2, fontSize: 9, fontWeight: 800, marginTop: 4 }}>OVR ÉQUIPE</div>
         </div>
         <div style={{ fontFamily: 'Archivo,sans-serif', fontWeight: 900, fontSize: 22, color: C.acc }}>VS</div>
         <div style={{ textAlign: 'center' }}>
           <TeamEmblem mgr={B.mgr} size={48} />
           <div style={{ fontFamily: 'Archivo,sans-serif', fontWeight: 900, fontSize: 28, color: B.mgr.color, marginTop: 8 }}>{B.agg.ovr}</div>
-          <div style={{ color: C.mut2, fontSize: 10, fontWeight: 800 }}>OVR</div>
+          <StatTypeTag team />
+          <div style={{ color: C.mut2, fontSize: 9, fontWeight: 800, marginTop: 4 }}>OVR ÉQUIPE</div>
         </div>
       </Surface>
       <Surface style={{ padding: 12 }}>
-        {[
-          ['Tireur penalty', A.roles.penalty, B.roles.penalty],
-          ['Attaquant 1v1', A.roles.duelAtt, B.roles.duelAtt],
-          ['Défenseur 1v1', A.roles.duelDef, B.roles.duelDef],
-        ].map(([label, pa, pb], i) => (
-          <div key={i} style={{ display: 'flex', alignItems: 'center', gap: 10, padding: '8px 0', borderBottom: i < 2 ? '1px solid ' + C.line : 'none' }}>
-            <div style={{ flex: 1, textAlign: 'right', fontFamily: 'Archivo,sans-serif', fontWeight: 800, fontSize: 12 }}>{pa.name.split(' ').pop()}</div>
-            <div style={{ fontSize: 10, color: C.mut2, fontWeight: 800, width: 72, textAlign: 'center' }}>{label}</div>
-            <div style={{ flex: 1, fontFamily: 'Archivo,sans-serif', fontWeight: 800, fontSize: 12 }}>{pb.name.split(' ').pop()}</div>
-          </div>
-        ))}
+        <StatsSectionTitle icon="duel" title="Duels par rôle" subtitle="Stats joueur individuelles sur chaque poste clé" />
+        {roleRow('Tireur penalty', A.roles.penalty, B.roles.penalty, 'tir')}
+        {roleRow('Attaquant 1v1', A.roles.duelAtt, B.roles.duelAtt, 'dri')}
+        {roleRow('Défenseur 1v1', A.roles.duelDef, B.roles.duelDef, 'def')}
       </Surface>
     </div>
   );
@@ -369,8 +612,14 @@ function Theater({ m, micro, atkMgr, defMgr }) {
     ? (m.scored ? 'BUT !' : (m.penalty || m.won) ? 'ARRÊT !' : 'STOPPÉ')
     : null;
 
+  const phaseLabel = {
+    intro: 'Préparation', cards: 'Joueurs en jeu', stats: 'Calcul des stats',
+    prob: 'Probabilité', suspense: 'Suspense…', duel: 'Duel', shot: 'Frappe',
+    keeper: 'Gardien', outcome: 'Résultat',
+  }[micro] || '';
+
   return (
-    <div style={{ flex: 1, display: 'flex', flexDirection: 'column', position: 'relative' }}>
+    <div style={{ flex: 1, display: 'flex', flexDirection: 'column', position: 'relative', overflowY: 'auto' }}>
       {/* event banner — EventCard-inspired horizontal strip */}
       <div key={m.i} style={{
         display: 'flex', alignItems: 'center', gap: 10, padding: '9px 12px', marginBottom: 6,
@@ -388,18 +637,12 @@ function Theater({ m, micro, atkMgr, defMgr }) {
         <div style={{ width: 36, height: 36, borderRadius: '50%', background: `${atkMgr.color}22`, border: `1.5px solid ${atkMgr.color}66`, display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}><Avatar mgr={atkMgr} size={28} /></div>
       </div>
 
-      {/* duel area */}
-      <div style={{ flex: 1, display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 4, position: 'relative', minHeight: 0 }}>
-        {/* attacker */}
-        <div style={{ flex: 1, display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 8, transition: 'all .5s', transform: showCards ? `translateX(${clash ? 8 : 0}px)` : 'translateX(-40px)', opacity: showCards ? 1 : 0 }}>
-          <PlayerCard player={m.atkPlayer} w={104} interactive={false} flippable={false} glowPulse={atkGlow} dim={outcome && !m.scored && !m.penalty && m.won ? false : (defGlow && false)} />
-          <div style={{ display: 'flex', flexDirection: 'column', gap: 4, minHeight: 44 }}>
-            {showStats && m.atkLines.map((l, i) => <StatLineV key={i} line={l} go={showStats} align="left" />)}
-          </div>
+      {/* duel area — cartes + centre */}
+      <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 4, position: 'relative', minHeight: 130 }}>
+        <div style={{ flex: 1, display: 'flex', justifyContent: 'center', transition: 'all .5s', transform: showCards ? `translateX(${clash ? 6 : 0}px)` : 'translateX(-30px)', opacity: showCards ? 1 : 0 }}>
+          <PlayerCard player={m.atkPlayer} w={96} interactive={false} flippable={false} glowPulse={atkGlow} />
         </div>
-
-        {/* center */}
-        <div style={{ width: 110, flexShrink: 0, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+        <div style={{ width: 100, flexShrink: 0, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
           {suspense ? (
             <div style={{ display: 'flex', gap: 6 }}>
               {[0, 1, 2].map(i => <div key={i} style={{ width: 12, height: 12, borderRadius: '50%', background: C.acc, animation: `bounce 0.6s ${i * 0.15}s infinite` }} />)}
@@ -407,18 +650,16 @@ function Theater({ m, micro, atkMgr, defMgr }) {
           ) : showProb ? (
             <ProbRing pct={ringPct} label={ringLabel} color={ringColor} />
           ) : (
-            <div style={{ fontFamily: 'Archivo,sans-serif', fontWeight: 900, fontSize: 22, color: C.mut2 }}>VS</div>
+            <div style={{ fontFamily: 'Archivo,sans-serif', fontWeight: 900, fontSize: 20, color: C.mut2 }}>VS</div>
           )}
         </div>
-
-        {/* defender */}
-        <div style={{ flex: 1, display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 8, transition: 'all .5s', transform: showCards ? `translateX(${clash ? -8 : 0}px)` : 'translateX(40px)', opacity: showCards ? 1 : 0 }}>
-          <PlayerCard player={m.defPlayer} w={104} interactive={false} flippable={false} glowPulse={defGlow} />
-          <div style={{ display: 'flex', flexDirection: 'column', gap: 4, minHeight: 44 }}>
-            {showStats && m.defLines.map((l, i) => <StatLineV key={i} line={l} go={showStats} align="right" />)}
-          </div>
+        <div style={{ flex: 1, display: 'flex', justifyContent: 'center', transition: 'all .5s', transform: showCards ? `translateX(${clash ? -6 : 0}px)` : 'translateX(30px)', opacity: showCards ? 1 : 0 }}>
+          <PlayerCard player={m.defPlayer} w={96} interactive={false} flippable={false} glowPulse={defGlow} />
         </div>
       </div>
+
+      {/* stats détaillées — pleine largeur, joueur vs équipe */}
+      {showStats && <ActionStatsCompare m={m} go={showStats} atkMgr={atkMgr} defMgr={defMgr} />}
 
       {/* outcome overlay */}
       {outcome && (
@@ -553,7 +794,8 @@ function MatchFlow({ midA, midB, replay, seed, onExit }) {
           {dealt >= 6 && <div style={{ fontFamily: 'Archivo,sans-serif', fontWeight: 900, fontSize: 17, color: C.acc, animation: 'scorePop .5s', display: 'flex', alignItems: 'center', gap: 6 }}><GzIcon name="bolt" size={18} color={C.accL} /> Que le match commence !</div>}
         </div>
       ) : (
-        <div style={{ flex: 1, display: 'flex', flexDirection: 'column', padding: '4px 16px 12px', minHeight: 0 }}>
+        <div style={{ flex: 1, display: 'flex', flexDirection: 'column', padding: '4px 16px 12px', minHeight: 0, overflowY: 'auto' }}>
+          {phaseLabel && <div style={{ fontSize: 9, fontWeight: 800, color: C.acc, letterSpacing: 1, fontFamily: 'Archivo,sans-serif', textTransform: 'uppercase', marginBottom: 6, textAlign: 'center' }}>{phaseLabel}</div>}
           <Theater m={m} micro={micro} atkMgr={atkMgr} defMgr={defMgr} />
           <div style={{ marginTop: 6 }}><CommentaryBar text={commentary} /></div>
           <div style={{ textAlign: 'center', color: C.mut2, fontSize: 10, marginTop: 6 }}>Touche l'écran pour accélérer</div>
