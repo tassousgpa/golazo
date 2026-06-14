@@ -1,0 +1,62 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no" />
+<title>GOLAZO — World Cup League</title>
+<link rel="preconnect" href="https://fonts.googleapis.com" />
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+<link href="https://fonts.googleapis.com/css2?family=Archivo:wght@400;600;700;800;900&family=Hanken+Grotesk:wght@400;500;600;700;800&display=swap" rel="stylesheet" />
+<style>
+  * { -webkit-tap-highlight-color: transparent; }
+  html, body { margin: 0; padding: 0; background: #06040d; }
+  body { font-family: 'Hanken Grotesk', system-ui, sans-serif; }
+  #root { min-height: 100vh; }
+
+  ::-webkit-scrollbar { width: 0; height: 0; }
+
+  @keyframes spin { to { transform: rotate(360deg); } }
+  @keyframes fadeIn { from { opacity: 0; } to { opacity: 1; } }
+  @keyframes sheetUp { from { transform: translateY(40px); opacity: 0; } to { transform: translateY(0); opacity: 1; } }
+  @keyframes cardPulse { 0%,100% { filter: brightness(1); } 50% { filter: brightness(1.18); } }
+  @keyframes gzFade { from { opacity: 0; transform: translateY(6px); } to { opacity: 1; transform: translateY(0); } }
+  @keyframes scorePop { 0% { transform: scale(1); } 40% { transform: scale(1.45); } 100% { transform: scale(1); } }
+  @keyframes bounce { 0%, 100% { transform: translateY(0); opacity: .6; } 50% { transform: translateY(-8px); opacity: 1; } }
+  @keyframes packShake { 0%,100% { transform: translateX(0) rotate(0deg); } 20% { transform: translateX(-6px) rotate(-2deg); } 40% { transform: translateX(6px) rotate(2deg); } 60% { transform: translateX(-4px) rotate(-1deg); } 80% { transform: translateX(4px) rotate(1deg); } }
+  .gz-fade { animation: gzFade .32s ease both; }
+
+  .gz-range { -webkit-appearance: none; appearance: none; height: 8px; border-radius: 999px;
+    background: rgba(255,255,255,0.12); outline: none; }
+  .gz-range::-webkit-slider-thumb { -webkit-appearance: none; appearance: none; width: 26px; height: 26px;
+    border-radius: 50%; background: linear-gradient(135deg, #e8c276, #c9922e); cursor: pointer;
+    box-shadow: 0 3px 10px rgba(201,146,46,0.6), 0 0 0 4px rgba(201,146,46,0.18); border: none; }
+  .gz-range::-moz-range-thumb { width: 26px; height: 26px; border-radius: 50%;
+    background: linear-gradient(135deg, #e8c276, #c9922e); cursor: pointer; border: none;
+    box-shadow: 0 3px 10px rgba(201,146,46,0.6); }
+
+  input, button, textarea { font-family: inherit; }
+</style>
+</head>
+<body>
+<div id="root"></div>
+
+<script src="https://unpkg.com/react@18.3.1/umd/react.development.js" crossorigin="anonymous"></script>
+<script src="https://unpkg.com/react-dom@18.3.1/umd/react-dom.development.js" crossorigin="anonymous"></script>
+<script src="https://unpkg.com/@babel/standalone@7.29.0/babel.min.js" crossorigin="anonymous"></script>
+
+<script type="text/babel" src="data.jsx"></script>
+<script type="text/babel" src="sim.jsx"></script>
+<script type="text/babel" src="cards.jsx"></script>
+<script type="text/babel" src="ui.jsx"></script>
+<script type="text/babel" src="screens-onboarding.jsx"></script>
+<script type="text/babel" src="screens-league.jsx"></script>
+<script type="text/babel" src="screens-market.jsx"></script>
+<script type="text/babel" src="screens-team.jsx"></script>
+<script type="text/babel" src="screens-match.jsx"></script>
+<script type="text/babel" src="screens-shop.jsx"></script>
+<script type="text/babel" src="screens-pack.jsx"></script>
+<script type="text/babel" src="ios-frame.jsx"></script>
+<script type="text/babel" src="tweaks-panel.jsx"></script>
+<script type="text/babel" src="app.jsx"></script>
+</body>
+</html>
