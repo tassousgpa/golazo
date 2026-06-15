@@ -1,5 +1,4 @@
 // screens-pack.jsx — Pack system: opening sequence, market packs, shop packs
-// Exports: PACK_DEFS, generatePackPlayers, PackOpening, MarketPackSection, ShopPackSection
 
 const PACK_DEFS = {
   bronze:     { label: 'Pack Bronze',     color: '#cd7f32', g1: '#3a2210', g2: '#1a0f06', price: 60,  jPrice: 18,  probs: { commun: 0.78, rare: 0.18, epique: 0.04, legendaire: 0 }    },
@@ -9,14 +8,79 @@ const PACK_DEFS = {
   legendaire: { label: 'Pack Légendaire', color: '#ffb020', g1: '#3a2000', g2: '#180e00', price: 950, jPrice: 270, probs: { commun: 0,    rare: 0.18, epique: 0.52, legendaire: 0.30 } },
 };
 
-const MARKET_PACKS = [
-  { id: 'mp_argent',     tier: 'argent',     count: 10, picks: 6 },
-  { id: 'mp_or',         tier: 'or',         count: 10, picks: 6 },
-  { id: 'mp_elite',      tier: 'elite',      count: 10, picks: 6 },
-];
+const MARKET_PACK_DEFS = {
+  standard: {
+    id: 'standard',
+    label: 'Pack Standard',
+    color: '#c9922e',
+    g1: '#3a2c00',
+    g2: '#1c1500',
+    price: 500,
+    count: 10,
+    picks: 6,
+    desc: '6 communs · 4 rares ou légendaires',
+    breakdown: '10 joueurs · tu en gardes 6',
+  },
+  premium: {
+    id: 'premium',
+    label: 'Pack Premium',
+    color: '#e8c276',
+    g1: '#3a2000',
+    g2: '#180e00',
+    price: 750,
+    count: 10,
+    picks: 6,
+    desc: '5 communs · 4 rares · 1 légendaire',
+    breakdown: '10 joueurs · tu en gardes 6',
+  },
+};
 
-// simulated players already won by rivals at auction (priority conflict demo)
 const AUCTION_CONFLICTS = new Set(['p6', 'p13', 'p14', 'p20', 'p7']);
+
+function poolBySlot(slot, used) {
+  return PLAYERS.filter(p => {
+    if (used.has(p.id)) return false;
+    const tier = visualTierOf(p.rarity);
+    if (slot === 'commun') return tier === 'commun';
+    if (slot === 'rare') return tier === 'rare' || p.rarity === 'epique';
+    if (slot === 'legendaire') return p.rarity === 'legendaire';
+    if (slot === 'rareOrLeg') return tier !== 'commun';
+    return false;
+  });
+}
+
+function pickFromPool(pool, used) {
+  if (!pool.length) {
+    const fallback = PLAYERS.filter(p => !used.has(p.id));
+    if (!fallback.length) return null;
+    const p = fallback[Math.floor(Math.random() * fallback.length)];
+    used.add(p.id);
+    return p;
+  }
+  const p = pool[Math.floor(Math.random() * pool.length)];
+  used.add(p.id);
+  return p;
+}
+
+function generateMarketPack(packId) {
+  const used = new Set();
+  const result = [];
+  const add = (slot, n) => {
+    for (let i = 0; i < n; i++) {
+      const p = pickFromPool(poolBySlot(slot, used), used);
+      if (p) result.push(p);
+    }
+  };
+  if (packId === 'premium') {
+    add('commun', 5);
+    add('rare', 4);
+    add('legendaire', 1);
+  } else {
+    add('commun', 6);
+    add('rareOrLeg', 4);
+  }
+  return result.sort((a, b) => a.ovr - b.ovr);
+}
 
 function generatePackPlayers(tier, count) {
   const def = PACK_DEFS[tier]; const used = new Set(); const result = [];
@@ -34,12 +98,17 @@ function generatePackPlayers(tier, count) {
     const p = src[Math.floor(Math.random() * src.length)];
     used.add(p.id); result.push(p);
   }
-  return result.sort((a, b) => a.ovr - b.ovr); // worst first → suspense at end
+  return result.sort((a, b) => a.ovr - b.ovr);
 }
 
-// ─── Sealed pack visual ───
-function PackCard({ tier, w = 180, animate }) {
-  const def = PACK_DEFS[tier]; const h = w * 1.5; const S = w / 180;
+function packVisualDef(tier, packId, mode) {
+  if (mode === 'market' && packId) return MARKET_PACK_DEFS[packId];
+  return PACK_DEFS[tier];
+}
+
+function PackCard({ tier, packId, mode, w = 180, animate }) {
+  const def = packVisualDef(tier, packId, mode);
+  const h = w * 1.5; const S = w / 180;
   return (
     <div style={{
       width: w, height: h, borderRadius: 20 * S, position: 'relative', overflow: 'hidden', flexShrink: 0,
@@ -49,37 +118,36 @@ function PackCard({ tier, w = 180, animate }) {
     }}>
       <div style={{ position: 'absolute', inset: 0, opacity: .3, background: `repeating-linear-gradient(135deg, rgba(255,255,255,0.06) 0 ${10 * S}px, transparent ${10 * S}px ${22 * S}px)` }} />
       <div style={{ position: 'absolute', inset: 0, background: `radial-gradient(circle at 50% 38%, ${def.color}22, transparent 60%)` }} />
-      {/* glow ring */}
       <div style={{ position: 'absolute', top: '50%', left: '50%', transform: 'translate(-50%,-55%)', width: 100 * S, height: 100 * S, borderRadius: '50%', background: `radial-gradient(circle, ${def.color}28, transparent 70%)`, boxShadow: `0 0 40px ${def.color}44` }} />
-      {/* icon */}
-        <div style={{ position: 'absolute', top: '50%', left: '50%', transform: 'translate(-50%,-60%)', textAlign: 'center', width: '100%' }}>
+      <div style={{ position: 'absolute', top: '50%', left: '50%', transform: 'translate(-50%,-60%)', textAlign: 'center', width: '100%' }}>
         <HexBallIcon size={52 * S} />
       </div>
-      {/* label */}
       <div style={{ position: 'absolute', left: 0, right: 0, bottom: 0, padding: `${20 * S}px ${14 * S}px ${18 * S}px`, background: 'linear-gradient(to top, rgba(0,0,0,0.7), transparent)', textAlign: 'center' }}>
         <div style={{ fontFamily: 'Archivo,sans-serif', fontWeight: 900, fontSize: 16 * S, color: def.color, letterSpacing: 0.8, textShadow: `0 0 12px ${def.color}` }}>{def.label.toUpperCase()}</div>
         <div style={{ marginTop: 4 * S, width: '50%', height: 2 * S, borderRadius: 999, background: def.color, margin: `${6 * S}px auto 0`, boxShadow: `0 0 8px ${def.color}` }} />
       </div>
-      {/* shine */}
       <div style={{ position: 'absolute', top: 0, left: '20%', width: '30%', height: '50%', background: 'linear-gradient(160deg, rgba(255,255,255,0.14), transparent)', borderRadius: '0 0 50% 50%', pointerEvents: 'none' }} />
     </div>
   );
 }
 
-// ─── The main pack opening experience ───
-function PackOpening({ tier, mode, onComplete, onClose }) {
-  const def = PACK_DEFS[tier];
-  const count = mode === 'market' ? 10 : 3;
-  const maxPicks = mode === 'market' ? 6 : 1;
+function PackOpening({ tier, packId, mode, onComplete, onClose }) {
+  const marketDef = mode === 'market' ? MARKET_PACK_DEFS[packId || 'standard'] : null;
+  const def = marketDef || PACK_DEFS[tier];
+  const count = mode === 'market' ? marketDef.count : 3;
+  const maxPicks = mode === 'market' ? marketDef.picks : 1;
 
-  const [phase, setPhase] = React.useState('sealed'); // sealed | opening | reveal | choose | done
+  const [phase, setPhase] = React.useState('sealed');
   const [flash, setFlash] = React.useState(false);
   const [flippedCount, setFlippedCount] = React.useState(0);
   const [selected, setSelected] = React.useState([]);
-  const [conflicts, setConflicts] = React.useState([]);
   const [shaking, setShaking] = React.useState(false);
 
-  const players = React.useMemo(() => generatePackPlayers(tier, count), [tier, count]);
+  const players = React.useMemo(() => (
+    mode === 'market'
+      ? generateMarketPack(packId || 'standard')
+      : generatePackPlayers(tier, count)
+  ), [tier, packId, mode, count]);
 
   const openPack = () => {
     setShaking(true);
@@ -89,7 +157,6 @@ function PackOpening({ tier, mode, onComplete, onClose }) {
     }, 500);
   };
 
-  // auto-flip cards
   React.useEffect(() => {
     if (phase !== 'reveal') return;
     setFlippedCount(0);
@@ -100,51 +167,41 @@ function PackOpening({ tier, mode, onComplete, onClose }) {
       if (i >= count) { clearInterval(t); setTimeout(() => setPhase('choose'), 700); }
     }, delay);
     return () => clearInterval(t);
-  }, [phase]);
+  }, [phase, count]);
 
   const toggleSelect = (pid) => {
-    if (mode === 'shop') { setSelected([pid]); return; } // shop: auto-select 1
+    if (mode === 'shop') { setSelected([pid]); return; }
     setSelected(prev => prev.includes(pid) ? prev.filter(x => x !== pid) : prev.length < maxPicks ? [...prev, pid] : prev);
   };
 
   const confirm = () => {
-    const conflicts2 = selected.filter(id => AUCTION_CONFLICTS.has(id));
-    setConflicts(conflicts2); setPhase('done');
+    setPhase('done');
     setTimeout(() => onComplete(selected), 400);
   };
 
   const canConfirm = mode === 'shop' ? selected.length === 1 : selected.length === maxPicks;
 
   return (
-    <div style={{ position: 'absolute', inset: 0, zIndex: 160, background: `radial-gradient(ellipse at 50% 20%, ${def.g1}, #09060f 60%)`, overflowY: 'auto', paddingTop: 56, paddingBottom: 30, display: 'flex', flexDirection: 'column' }}>
-      {/* flash overlay */}
+    <div style={{ position: 'absolute', inset: 0, zIndex: 160, background: `radial-gradient(ellipse at 50% 20%, ${def.g1}, #09060f 60%)`, overflowY: 'auto', WebkitOverflowScrolling: 'touch', touchAction: 'pan-y', paddingTop: 56, paddingBottom: 30, display: 'flex', flexDirection: 'column' }}>
       <div style={{ position: 'absolute', inset: 0, background: 'radial-gradient(circle, rgba(255,255,255,0.9), transparent 55%)', opacity: flash ? 1 : 0, transition: 'opacity .35s', pointerEvents: 'none', zIndex: 10 }} />
-
-      {/* close */}
       <div style={{ position: 'absolute', top: 56, right: 16, zIndex: 20 }}>
         <button onClick={onClose} style={{ width: 34, height: 34, borderRadius: 11, border: '1px solid ' + C.line, background: C.surf2, color: C.txt, fontSize: 15, cursor: 'pointer' }}>✕</button>
       </div>
-
-      {/* header */}
       <div style={{ textAlign: 'center', padding: '0 24px 12px' }}>
         <div style={{ fontFamily: 'Archivo,sans-serif', fontWeight: 900, fontSize: 13, color: def.color, letterSpacing: 2, marginBottom: 4 }}>OUVERTURE DE PACK</div>
         <div style={{ fontFamily: 'Archivo,sans-serif', fontWeight: 900, fontSize: 22, color: '#fff' }}>{def.label}</div>
       </div>
-
-      {/* SEALED phase */}
       {(phase === 'sealed' || phase === 'opening') && (
         <div style={{ flex: 1, display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', gap: 28, padding: '0 24px' }}>
-          <PackCard tier={tier} w={190} animate={shaking} />
+          <PackCard tier={tier} packId={packId} mode={mode} w={190} animate={shaking} />
           <div style={{ textAlign: 'center', color: C.mut, fontSize: 13, maxWidth: 280 }}>
-            {mode === 'market' ? `10 joueurs · tu en gardes ${maxPicks}` : '3 joueurs · tu en gardes 1'}
+            {mode === 'market' ? marketDef.breakdown : '3 joueurs · tu en gardes 1'}
           </div>
           <Btn full size="lg" onClick={openPack} style={{ background: `linear-gradient(135deg, ${def.color}, ${def.g1})`, color: '#160b02' }}>
             <GzIcon name="sparkle" size={18} color="#160b02" /> Ouvrir le pack
           </Btn>
         </div>
       )}
-
-      {/* REVEAL / CHOOSE phases */}
       {(phase === 'reveal' || phase === 'choose') && (
         <div style={{ flex: 1, display: 'flex', flexDirection: 'column', padding: '0 14px' }}>
           {phase === 'choose' && (
@@ -157,15 +214,12 @@ function PackOpening({ tier, mode, onComplete, onClose }) {
               </div>
             </div>
           )}
-
           {phase === 'reveal' && (
             <div style={{ textAlign: 'center', marginBottom: 12 }}>
               <div style={{ fontFamily: 'Archivo,sans-serif', fontWeight: 900, fontSize: 17 }}>Révélation…</div>
               <div style={{ color: def.color, fontSize: 13, marginTop: 3 }}>{flippedCount}/{count} cartes révélées</div>
             </div>
           )}
-
-          {/* Cards grid */}
           {count === 3 ? (
             <div style={{ display: 'flex', gap: 14, justifyContent: 'center', flex: 1, alignItems: 'center' }}>
               {players.map((p, i) => <FlipCard key={p.id} player={p} i={i} flippedCount={flippedCount} selected={selected.includes(p.id)} onSelect={() => toggleSelect(p.id)} phase={phase} big />)}
@@ -175,7 +229,6 @@ function PackOpening({ tier, mode, onComplete, onClose }) {
               {players.map((p, i) => <FlipCard key={p.id} player={p} i={i} flippedCount={flippedCount} selected={selected.includes(p.id)} onSelect={() => toggleSelect(p.id)} phase={phase} />)}
             </div>
           )}
-
           {phase === 'choose' && (
             <div style={{ marginTop: 14 }}>
               <Btn full size="lg" disabled={!canConfirm} onClick={confirm} style={canConfirm ? { background: `linear-gradient(135deg, ${def.color}, ${def.g1})`, color: '#160b02' } : {}}>
@@ -194,7 +247,6 @@ function FlipCard({ player, i, flippedCount, selected, onSelect, phase, big }) {
   const r = RARITY[player.rarity];
   const w = big ? 104 : 58;
   const h = w * 1.4;
-  const isLast = big ? false : i >= flippedCount - 2; // last 2 get extra glow on reveal
   return (
     <div style={{ perspective: 600 }}>
       <div style={{
@@ -202,17 +254,14 @@ function FlipCard({ player, i, flippedCount, selected, onSelect, phase, big }) {
         transform: `rotateY(${flipped ? 0 : 180}deg)`,
         transition: `transform .55s cubic-bezier(.2,.8,.2,1)`,
       }}>
-        {/* face-down */}
         <div style={{ position: 'absolute', inset: 0, backfaceVisibility: 'hidden', borderRadius: big ? 14 : 9, background: 'linear-gradient(157deg,#221a38,#0d0a18)', border: '1px solid rgba(255,255,255,0.1)', display: 'flex', alignItems: 'center', justifyContent: 'center', overflow: 'hidden' }}>
           <div style={{ position: 'absolute', inset: 0, opacity: .2, background: 'repeating-linear-gradient(45deg,rgba(255,255,255,0.07) 0 5px,transparent 5px 11px)' }} />
           <span style={{ fontSize: big ? 28 : 18, opacity: .3 }}>?</span>
         </div>
-        {/* face-up */}
         <div onClick={phase === 'choose' ? onSelect : undefined} style={{ position: 'absolute', inset: 0, backfaceVisibility: 'hidden', transform: 'rotateY(180deg)', cursor: phase === 'choose' ? 'pointer' : 'default' }}>
           {big
             ? <PlayerCard player={player} w={w} interactive={false} flippable={false} glowPulse={selected} selected={selected} />
             : <MiniCard player={player} w={w} selected={selected} onClick={undefined} />}
-          {/* new badge for high rarity on reveal */}
           {flipped && (player.rarity === 'legendaire' || player.rarity === 'epique') && (
             <div style={{ position: 'absolute', top: -6, right: -6, background: r.ring, borderRadius: 999, padding: '2px 5px', fontSize: 7.5, fontWeight: 900, fontFamily: 'Archivo,sans-serif', color: '#160b02', boxShadow: `0 0 10px ${r.ring}`, animation: 'scorePop .5s', zIndex: 5 }}>{r.label.slice(0, 3).toUpperCase()}</div>
           )}
@@ -222,42 +271,32 @@ function FlipCard({ player, i, flippedCount, selected, onSelect, phase, big }) {
   );
 }
 
-// ─── Market pack section (inside MarketScreen packs tab) ───
-function MarketPackSection({ onBuyPack, spentCredits }) {
+function MarketPackSection({ onBuyPack }) {
   return (
-    <div>
-      <div style={{ color: C.mut, fontSize: 12.5, marginBottom: 14, lineHeight: 1.5 }}>
-        Ouvre un pack et reçois 10 joueurs — tu en gardes 6. <b style={{ color: C.acc }}>Avantage priorité :</b> si un joueur du pack est aussi remporté par un rival en enchère, tu le récupères — il est remboursé.
-      </div>
-      <div style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
-        {MARKET_PACKS.map(mp => {
-          const def = PACK_DEFS[mp.tier];
-          return (
-            <Surface key={mp.id} style={{ padding: 14, display: 'flex', alignItems: 'center', gap: 14, borderColor: `${def.color}44` }}>
-              <div style={{ width: 58, height: 87, borderRadius: 10, background: `linear-gradient(155deg, ${def.g1}, ${def.g2})`, border: `1.5px solid ${def.color}66`, display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0, boxShadow: `0 0 14px ${def.color}33` }}>
-                <HexBallIcon size={28} />
-              </div>
-              <div style={{ flex: 1 }}>
-                <div style={{ fontFamily: 'Archivo,sans-serif', fontWeight: 900, fontSize: 15, color: def.color }}>{def.label}</div>
-                <div style={{ color: C.mut, fontSize: 12, marginTop: 3 }}>10 joueurs · gardes-en 6 · priorité enchère</div>
-                <div style={{ display: 'flex', gap: 6, marginTop: 6 }}>
-                  {Object.entries(def.probs).filter(([, v]) => v > 0).map(([r, v]) => (
-                    <Chip key={r} color={RARITY[r].ring} style={{ fontSize: 10, padding: '2px 7px' }}>{Math.round(v * 100)}% {RARITY[r].label.slice(0, 3)}</Chip>
-                  ))}
-                </div>
-              </div>
-              <Btn size="sm" onClick={() => onBuyPack(mp.tier)} style={{ background: `linear-gradient(135deg, ${def.color}, ${def.g1})`, color: '#160b02', display: 'inline-flex', alignItems: 'center', gap: 6 }}>
-                <CreditPill value={def.price} size="sm" />
-              </Btn>
-            </Surface>
-          );
-        })}
+    <div style={{ display: 'flex', flexDirection: 'column', gap: 14 }}>
+      {Object.values(MARKET_PACK_DEFS).map(def => (
+        <Surface key={def.id} style={{ padding: 16, borderColor: `${def.color}55`, background: `linear-gradient(135deg, ${def.color}10, rgba(0,0,0,0.2))` }}>
+          <div style={{ display: 'flex', alignItems: 'flex-start', gap: 14 }}>
+            <PackCard packId={def.id} mode="market" w={72} />
+            <div style={{ flex: 1, minWidth: 0 }}>
+              <div style={{ fontFamily: 'Archivo,sans-serif', fontWeight: 900, fontSize: 17, color: def.color }}>{def.label}</div>
+              <div style={{ color: C.txt, fontSize: 13, marginTop: 6, fontWeight: 600 }}>{def.desc}</div>
+              <div style={{ color: C.mut, fontSize: 12, marginTop: 4 }}>{def.breakdown}</div>
+            </div>
+          </div>
+          <div style={{ height: 12 }} />
+          <Btn full size="lg" onClick={() => onBuyPack(def.id)} style={{ background: `linear-gradient(135deg, ${def.color}, ${def.g1})`, color: '#160b02', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 8 }}>
+            Ouvrir · <CreditPill value={def.price} size="sm" />
+          </Btn>
+        </Surface>
+      ))}
+      <div style={{ color: C.mut2, fontSize: 11.5, lineHeight: 1.45, textAlign: 'center', padding: '0 8px' }}>
+        Priorité pack sur les enchères rivales — crédits remboursés en cas de conflit.
       </div>
     </div>
   );
 }
 
-// ─── Shop pack section ───
 function ShopPackSection({ credits, jetons, onBuyWithCredits, onBuyWithJetons }) {
   const [buyMode, setBuyMode] = React.useState('credits');
   return (
@@ -295,4 +334,4 @@ function ShopPackSection({ credits, jetons, onBuyWithCredits, onBuyWithJetons })
   );
 }
 
-Object.assign(window, { PACK_DEFS, MARKET_PACKS, generatePackPlayers, PackCard, PackOpening, MarketPackSection, ShopPackSection, AUCTION_CONFLICTS });
+Object.assign(window, { PACK_DEFS, MARKET_PACK_DEFS, generatePackPlayers, generateMarketPack, PackCard, PackOpening, MarketPackSection, ShopPackSection, AUCTION_CONFLICTS });

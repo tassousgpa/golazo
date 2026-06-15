@@ -9,9 +9,10 @@
 <link href="https://fonts.googleapis.com/css2?family=Archivo:wght@400;600;700;800;900&family=Hanken+Grotesk:wght@400;500;600;700;800&display=swap" rel="stylesheet" />
 <style>
   * { -webkit-tap-highlight-color: transparent; box-sizing: border-box; }
-  html, body { margin: 0; padding: 0; background: #06040d; height: 100%; height: 100dvh; overflow: hidden; overscroll-behavior: none; }
+  html, body { margin: 0; padding: 0; background: #06040d; height: 100%; height: 100dvh; overflow: hidden; overscroll-behavior: none; touch-action: manipulation; }
   body { font-family: 'Hanken Grotesk', system-ui, sans-serif; }
   #root { height: 100%; height: 100dvh; overflow: hidden; }
+  .gz-scroll { overflow-y: auto; -webkit-overflow-scrolling: touch; overscroll-behavior-y: contain; touch-action: pan-y; }
 
   ::-webkit-scrollbar { width: 0; height: 0; }
 
@@ -26,6 +27,7 @@
   @keyframes duelClash { 0%, 100% { transform: translate(-50%, -50%) scale(1); } 50% { transform: translate(-50%, -50%) scale(1.06); filter: brightness(1.15); } }
   @keyframes duelWin { 0% { transform: translate(-50%, -50%) scale(1); } 35% { transform: translate(-50%, -50%) scale(1.14); } 100% { transform: translate(-50%, -50%) scale(1); } }
   @keyframes cardEnter { from { opacity: 0; transform: translate(-50%, -50%) scale(0.72); } to { opacity: 1; transform: translate(-50%, -50%) scale(1); } }
+  @keyframes cardPop { from { opacity: 0; transform: scale(0.88); } to { opacity: 1; transform: scale(1); } }
   @keyframes momentDraw { from { opacity: 0; transform: translateY(14px); } to { opacity: 1; transform: translateY(0); } }
   @keyframes cardFlip { from { opacity: 0; transform: perspective(400px) rotateY(-75deg) scale(0.88); } to { opacity: 1; transform: perspective(400px) rotateY(0) scale(1); } }
   @keyframes pitchSplit { from { opacity: 0; } to { opacity: 1; } }

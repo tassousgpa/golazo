@@ -406,12 +406,15 @@ function InvolvedPlayerCard({ player, cardStyle, highlight, gkGlow }) {
   const active = highlight || gkGlow;
   return (
     <div style={{
-      padding: 6, borderRadius: 18, textAlign: 'center',
+      width: '100%', maxWidth: 130, margin: '0 auto',
+      padding: 6, borderRadius: 18, textAlign: 'center', boxSizing: 'border-box',
       background: active ? `linear-gradient(160deg, ${gkGlow ? '#66d9e840' : vis.ring + '40'}, transparent)` : 'transparent',
       boxShadow: gkGlow ? '0 0 36px rgba(102,217,232,0.55)' : (active ? `0 0 28px ${vis.glow}` : 'none'),
-      animation: active ? 'cardEnter .5s ease both' : 'none',
+      animation: active ? 'cardPop .45s ease both' : 'none',
     }}>
-      <PlayerCard player={player} w={112} interactive={false} flippable={false} cardStyle={cardStyle} glowPulse={active} />
+      <div style={{ display: 'flex', justifyContent: 'center' }}>
+        <PlayerCard player={player} w={100} interactive={false} flippable={false} cardStyle={cardStyle} glowPulse={active} />
+      </div>
       <div style={{ marginTop: 6, fontFamily: 'Archivo,sans-serif', fontWeight: 900, fontSize: 10, letterSpacing: 0.6, color: gkGlow ? '#66d9e8' : vis.text }}>
         {gkGlow ? 'GARDIEN' : vis.label.toUpperCase()}
       </div>
@@ -484,13 +487,14 @@ function SplitCamp({ side, align, cardStyle, highlight, gkGlow, animate }) {
   const tint = side.mgr.color;
   return (
     <div style={{
-      flex: 1, minWidth: 0, display: 'flex', flexDirection: 'column', alignItems: 'center',
-      padding: '10px 8px 72px', position: 'relative',
+      flex: '1 1 0', minWidth: 0, width: '50%',
+      display: 'flex', flexDirection: 'column', alignItems: 'center',
+      padding: '8px 6px 72px', boxSizing: 'border-box',
       background: `linear-gradient(180deg, ${tint}12 0%, transparent 55%)`,
     }}>
-      <div style={{ display: 'flex', alignItems: 'center', gap: 6, marginBottom: 6 }}>
+      <div style={{ display: 'flex', alignItems: 'center', gap: 6, marginBottom: 6, maxWidth: '100%', flexWrap: 'wrap', justifyContent: 'center' }}>
         <Avatar mgr={side.mgr} size={22} />
-        <span style={{ fontFamily: 'Archivo,sans-serif', fontWeight: 900, fontSize: 11, color: tint }}>{side.mgr.name}</span>
+        <span style={{ fontFamily: 'Archivo,sans-serif', fontWeight: 900, fontSize: 10, color: tint, textAlign: 'center' }}>{side.mgr.name}</span>
         {side.mgr.you && <Chip color={C.acc} solid style={{ fontSize: 8 }}>Toi</Chip>}
       </div>
       <InvolvedPlayerCard player={side.player} cardStyle={cardStyle} highlight={highlight} gkGlow={gkGlow} />
@@ -503,9 +507,12 @@ function SplitMomentScreen({ m, sides, cardStyle, prob, probLabel, animate, puls
   return (
     <div style={{ flex: 1, minHeight: 0, display: 'flex', flexDirection: 'column' }}>
       <MomentTypeBadge m={m} />
-      <div style={{ flex: 1, minHeight: 0, display: 'flex', position: 'relative', borderRadius: 14, overflow: 'hidden', border: '1px solid ' + C.line }}>
+      <div style={{
+        flex: 1, minHeight: 0, display: 'flex', flexDirection: 'row', alignItems: 'stretch',
+        position: 'relative', borderRadius: 14, overflow: 'hidden', border: '1px solid ' + C.line,
+      }}>
         <SplitCamp side={sides.left} align="left" cardStyle={cardStyle} highlight={highlightPlayers} gkGlow={gkLeft} animate={animate} />
-        <div style={{ width: 3, flexShrink: 0, background: 'linear-gradient(180deg, transparent, rgba(201,146,46,0.65), transparent)', boxShadow: '0 0 12px rgba(201,146,46,0.35)' }} />
+        <div style={{ width: 3, flexShrink: 0, alignSelf: 'stretch', background: 'linear-gradient(180deg, transparent, rgba(201,146,46,0.65), transparent)', boxShadow: '0 0 12px rgba(201,146,46,0.35)' }} />
         <SplitCamp side={sides.right} align="right" cardStyle={cardStyle} highlight={highlightPlayers} gkGlow={gkRight} animate={animate} />
         {prob != null && <CenterProbability pct={prob} label={probLabel} pulse={pulse} />}
       </div>

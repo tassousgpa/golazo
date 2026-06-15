@@ -67,7 +67,12 @@ function AppShell() {
   const cardStyle = 'blason';
   const bg = 'radial-gradient(120% 80% at 50% 0%, #111a2e, #0c0f1c 65%)';
 
-  const openPack = (tier, mode, onComplete) => setPackOpen({ tier, mode, onComplete });
+  const openPack = (tierOrPackId, mode, onComplete) => setPackOpen({
+    tier: mode === 'market' ? null : tierOrPackId,
+    packId: mode === 'market' ? tierOrPackId : null,
+    mode,
+    onComplete,
+  });
   const closePack = () => setPackOpen(null);
 
   const startMatch = (oppMid, opts = {}) => setMatch({
@@ -215,7 +220,17 @@ function AppShell() {
     content = <ShopScreen cardStyle={cardStyle} onOpenPack={openPack} />;
   }
 
+  const goHome = () => { setFlow(null); setTab('home'); setSetup(false); };
+  const goBack = () => {
+    if (setup) { setSession(false); setAuth(false); setSetup(false); setSetupError(null); }
+    else if (flow) setFlow(null);
+    else setTab('home');
+  };
+
   const showNav = auth && !match && !flow && !setup && !booting;
+  const showLogoBar = auth && !match && !booting;
+  const scrollPadTop = showLogoBar ? 'max(58px, calc(env(safe-area-inset-top, 0px) + 52px))' : '58px';
+  const scrollPadBottom = showNav ? 'max(110px, calc(env(safe-area-inset-bottom, 0px) + 96px))' : 'max(24px, env(safe-area-inset-bottom, 0px))';
 
   if (booting) {
     return (
@@ -246,19 +261,43 @@ function AppShell() {
               <MatchFlow {...match} onExit={() => setMatch(null)} isMobile={isMobile} />
             </div>
           ) : (
-            <div style={{ minHeight: '100%', overflowY: 'auto', WebkitOverflowScrolling: 'touch', padding: '58px 18px 110px' }} key={flow || tab || (setup ? 'setup' : 'main')}>
-              {content || (
-                <div style={{ textAlign: 'center', padding: 32 }}>
-                  <div style={{ color: C.mut, marginBottom: 16 }}>Aucun écran à afficher.</div>
-                  <Btn onClick={() => { setSetup(true); setTab('home'); }}>Configurer mon profil</Btn>
-                </div>
+            <React.Fragment>
+              {showLogoBar && (
+                <AppLogoBar
+                  onHome={goHome}
+                  onBack={(flow || setup) ? goBack : null}
+                />
               )}
-            </div>
+              <div
+                className="gz-scroll"
+                style={{
+                  height: '100%',
+                  overflowY: 'auto',
+                  WebkitOverflowScrolling: 'touch',
+                  overscrollBehaviorY: 'contain',
+                  touchAction: 'pan-y',
+                  paddingTop: scrollPadTop,
+                  paddingBottom: scrollPadBottom,
+                  paddingLeft: 18,
+                  paddingRight: 18,
+                  boxSizing: 'border-box',
+                }}
+                key={flow || tab || (setup ? 'setup' : 'main')}
+              >
+                {content || (
+                  <div style={{ textAlign: 'center', padding: 32 }}>
+                    <div style={{ color: C.mut, marginBottom: 16 }}>Aucun écran à afficher.</div>
+                    <Btn onClick={() => { setSetup(true); setTab('home'); }}>Configurer mon profil</Btn>
+                  </div>
+                )}
+              </div>
+            </React.Fragment>
           )}
 
           {packOpen && (
             <PackOpening
               tier={packOpen.tier}
+              packId={packOpen.packId}
               mode={packOpen.mode}
               onComplete={(ids) => { packOpen.onComplete(ids); closePack(); }}
               onClose={closePack}

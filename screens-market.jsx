@@ -181,11 +181,12 @@ function MarketScreen({ onDone, cardStyle, onOpenPack, firstTime, profile }) {
     }
   };
 
-  const handleBuyPack = (tier) => {
-    const price = PACK_DEFS[tier].price;
-    if (credits < price) { flash('Crédits insuffisants !'); return; }
-    setPackSpent(s => s + price);
-    onOpenPack(tier, 'market', (selectedIds) => {
+  const handleBuyPack = (packId) => {
+    const def = MARKET_PACK_DEFS[packId];
+    if (!def) return;
+    if (credits < def.price) { flash('Crédits insuffisants !'); return; }
+    setPackSpent(s => s + def.price);
+    onOpenPack(packId, 'market', (selectedIds) => {
       const conflicts = selectedIds.filter(id => Object.keys(bids).includes(id));
       setWon(prev => [...new Set([...prev, ...selectedIds])]);
       if (conflicts.length) {
@@ -207,7 +208,7 @@ function MarketScreen({ onDone, cardStyle, onOpenPack, firstTime, profile }) {
       </div>
       <div style={{ display: 'flex', gap: 11 }}>
         <ModeCard icon="whisper" title="Enchères secrètes" desc="Mise sur des joueurs précis. Révélation à la fin." onClick={() => setPhase('bid')} tint="gold" />
-        <ModeCard icon="cards" title="Packs" desc="10 joueurs révélés, gardes-en 6. Priorité sur les enchères adverses." onClick={() => { setPhase('bid'); setMarketTab('packs'); }} tint="gold" />
+        <ModeCard icon="cards" title="Packs" desc="2 packs fixes : Standard 500 cr ou Premium 750 cr." onClick={() => { setPhase('bid'); setMarketTab('packs'); }} tint="gold" />
       </div>
       <Section title="Règles" />
       <RuleList items={[
@@ -229,11 +230,16 @@ function MarketScreen({ onDone, cardStyle, onOpenPack, firstTime, profile }) {
       )}
       <Seg value={marketTab} onChange={setMarketTab} options={[{ v: 'encheres', label: 'Enchères' }, { v: 'packs', label: 'Packs' }]} />
       <div style={{ height: 10 }} />
-      <MarketFilters filters={filters} onChange={setFilters} compact />
-      <div style={{ color: C.mut2, fontSize: 11, marginBottom: 10, fontWeight: 700 }}>
-        {resultCount} joueur{resultCount > 1 ? 's' : ''} correspondant{resultCount > 1 ? 's' : ''}
-        {auctionCandidates.length < resultCount ? ` · ${auctionCandidates.length} affiché${auctionCandidates.length > 1 ? 's' : ''}` : ''}
-      </div>
+
+      {marketTab === 'encheres' && (
+        <React.Fragment>
+          <MarketFilters filters={filters} onChange={setFilters} compact />
+          <div style={{ color: C.mut2, fontSize: 11, marginBottom: 10, fontWeight: 700 }}>
+            {resultCount} joueur{resultCount > 1 ? 's' : ''} correspondant{resultCount > 1 ? 's' : ''}
+            {auctionCandidates.length < resultCount ? ` · ${auctionCandidates.length} affiché${auctionCandidates.length > 1 ? 's' : ''}` : ''}
+          </div>
+        </React.Fragment>
+      )}
 
       {marketTab === 'encheres' && (
         <div>
@@ -279,7 +285,7 @@ function MarketScreen({ onDone, cardStyle, onOpenPack, firstTime, profile }) {
       )}
 
       {marketTab === 'packs' && (
-        <MarketPackSection onBuyPack={handleBuyPack} spentCredits={packSpent} />
+        <MarketPackSection onBuyPack={handleBuyPack} />
       )}
 
       <Sheet open={!!bidFor} onClose={() => setBidFor(null)} title={bidFor ? `Miser sur ${bidFor.name}` : ''}>

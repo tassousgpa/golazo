@@ -367,6 +367,36 @@ function VsBar({ a, b, aLabel, bLabel, aColor = C.acc, bColor = C.cyan, height =
   );
 }
 
+function AppLogoBar({ onHome, onBack }) {
+  return (
+    <div style={{
+      position: 'absolute', top: 0, left: 0, right: 0, zIndex: 120,
+      paddingTop: 'max(10px, env(safe-area-inset-top, 0px))',
+      paddingBottom: 8, paddingLeft: 12, paddingRight: 12,
+      display: 'flex', alignItems: 'center', gap: 8,
+      background: 'linear-gradient(180deg, rgba(12,15,28,0.96) 0%, rgba(12,15,28,0.75) 70%, transparent 100%)',
+      pointerEvents: 'none',
+    }}>
+      {onBack && (
+        <button type="button" onClick={onBack} aria-label="Retour" style={{
+          pointerEvents: 'auto', width: 38, height: 38, borderRadius: 12, flexShrink: 0,
+          border: '1px solid ' + C.line, background: C.surf2, color: C.txt, cursor: 'pointer',
+          fontSize: 20, display: 'flex', alignItems: 'center', justifyContent: 'center',
+        }}>‹</button>
+      )}
+      <button type="button" onClick={onHome} aria-label="Accueil GOLAZO" style={{
+        pointerEvents: 'auto', width: 42, height: 42, borderRadius: 14, flexShrink: 0,
+        border: '1px solid rgba(201,146,46,0.45)', background: 'rgba(201,146,46,0.12)',
+        cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center',
+        boxShadow: '0 0 16px rgba(201,146,46,0.2)',
+      }}>
+        <HexBallIcon size={26} />
+      </button>
+      <div style={{ flex: 1, fontFamily: 'Archivo,sans-serif', fontWeight: 900, fontSize: 13, letterSpacing: 1.2, color: C.accL, pointerEvents: 'none' }}>GOLAZO</div>
+    </div>
+  );
+}
+
 function TopBar({ title, sub, onBack, right, big }) {
   return (
     <div style={{ display: 'flex', alignItems: 'center', gap: 12, marginBottom: 18 }}>
@@ -487,4 +517,4 @@ function BottomNav({ tab, onTab, onMatch }) {
   );
 }
 
-Object.assign(window, { C, HexBallIcon, GzIcon, IconBadge, PageHeader, Banner, ModeCard, RuleList, GemPill, HexFrame, XpBar, NavTile, Btn, Surface, Chip, Avatar, CreditPill, JetonPill, VsBar, TopBar, Section, Seg, Sheet, BottomNav, ErrorBoundary });
+Object.assign(window, { C, HexBallIcon, GzIcon, IconBadge, PageHeader, Banner, ModeCard, RuleList, GemPill, HexFrame, XpBar, NavTile, Btn, Surface, Chip, Avatar, CreditPill, JetonPill, VsBar, TopBar, Section, Seg, Sheet, BottomNav, ErrorBoundary, AppLogoBar });
