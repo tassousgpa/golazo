@@ -5,17 +5,29 @@ const DEMO_MARKET_PLAYERS = [
 ].map(playerByName).filter(Boolean);
 
 const DEMO_MATCH_STEPS = [
-  { k: 'draw', title: 'Tirage du moment', body: 'Chaque match = 6 moments clés tirés au hasard.', icon: 'cards' },
-  { k: 'stats', title: 'Stats décisives', body: 'Les stats de tes joueurs s\'affrontent en temps réel.', icon: 'chart' },
-  { k: 'clash', title: 'L\'action se joue', body: 'Suspense sur chaque duel, corner ou penalty.', icon: 'bolt' },
-  { k: 'outcome', title: 'Résultat', body: 'But, arrêt ou occasion manquée — en 60 secondes.', icon: 'trophy' },
+  { k: 'draw', title: 'Tirage du moment', body: '6 moments clés par match.', icon: 'cards' },
+  { k: 'action', title: '3 contre 3', body: 'Les joueurs de champ s\'affrontent — le gardien intervient sur la frappe.', icon: 'bolt' },
+  { k: 'finish', title: 'Face au gardien', body: 'Tireur vs gardien, probabilité en direct.', icon: 'target' },
+  { k: 'outcome', title: 'Résultat', body: 'But, arrêt ou action stoppée.', icon: 'trophy' },
 ];
 
 function ProductDemo({ onClose, cardStyle = 'blason' }) {
   const [tab, setTab] = React.useState('market');
+  const [marketTab, setMarketTab] = React.useState('encheres');
   const [detail, setDetail] = React.useState(null);
   const [matchStep, setMatchStep] = React.useState(0);
   const [runMatch, setRunMatch] = React.useState(false);
+  const [demoReady, setDemoReady] = React.useState(false);
+
+  React.useEffect(() => {
+    const savedProfile = loadProfile();
+    applyTestState(buildTestProfile());
+    setDemoReady(true);
+    return () => {
+      if (savedProfile) syncGameStateFromProfile(savedProfile);
+      else applyBlankState();
+    };
+  }, []);
 
   React.useEffect(() => {
     if (tab !== 'match' || runMatch) return;
@@ -23,8 +35,13 @@ function ProductDemo({ onClose, cardStyle = 'blason' }) {
     return () => clearInterval(t);
   }, [tab, runMatch]);
 
-  const demoPlayers = fieldOf('m1');
+  const teamA = demoReady ? fieldOf('m1') : { outfield: [] };
+  const teamB = demoReady ? fieldOf('m3') : { outfield: [] };
   const step = DEMO_MATCH_STEPS[matchStep];
+
+  const flashPack = () => {
+    /* démo — pas d'ouverture réelle */
+  };
 
   return (
     <div style={{
@@ -34,7 +51,7 @@ function ProductDemo({ onClose, cardStyle = 'blason' }) {
       <div style={{ padding: '52px 18px 12px', display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
         <div>
           <div style={{ fontFamily: 'Archivo,sans-serif', fontWeight: 900, fontSize: 20 }}>Démo GOLAZO</div>
-          <div style={{ color: C.mut, fontSize: 12.5, marginTop: 2 }}>Découvre le produit en 30 secondes</div>
+          <div style={{ color: C.mut, fontSize: 12.5, marginTop: 2 }}>Aperçu marché & match</div>
         </div>
         <button onClick={onClose} style={{
           width: 38, height: 38, borderRadius: '50%', border: '1px solid ' + C.line,
@@ -50,35 +67,46 @@ function ProductDemo({ onClose, cardStyle = 'blason' }) {
       </div>
 
       <div style={{ flex: 1, overflowY: 'auto', padding: '0 18px 24px', WebkitOverflowScrolling: 'touch' }}>
-        {tab === 'market' && !runMatch && (
+        {!demoReady ? (
+          <div style={{ textAlign: 'center', padding: 32, color: C.mut }}>Chargement de la démo…</div>
+        ) : tab === 'market' && !runMatch ? (
           <React.Fragment>
-            <Banner icon="whisper" tint="gold" title="Enchères secrètes" body="Mise sur des stars CDM 2026. Touche une carte pour la vue 3D." />
-            <div style={{ height: 12 }} />
-            <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 12 }}>
-              {DEMO_MARKET_PLAYERS.map(p => (
-                <Surface key={p.id} onClick={() => setDetail(p)} style={{ padding: 10, cursor: 'pointer' }}>
-                  <div style={{ display: 'flex', justifyContent: 'center' }}>
-                    <PlayerCard player={withBoost(p)} w={100} interactive flippable cardStyle={cardStyle} />
-                  </div>
-                  <div style={{ textAlign: 'center', marginTop: 6 }}>
-                    <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 5 }}>
-                      <Flag code={p.country} w={14} />
-                      <span style={{ fontFamily: 'Archivo,sans-serif', fontWeight: 800, fontSize: 11 }}>{p.name.split(' ').pop()}</span>
-                    </div>
-                    <div style={{ fontSize: 9.5, color: cardVisualOf(p.rarity).ring, fontWeight: 800, marginTop: 2 }}>{cardVisualOf(p.rarity).label}</div>
-                  </div>
-                </Surface>
-              ))}
+            <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 10 }}>
+              <CreditPill value={500} size="sm" />
+              <MarketHelpButton />
             </div>
-            <div style={{ height: 14 }} />
-            <RuleList items={[
-              { icon: 'whisper', title: 'Enchères', desc: 'Budget identique · révélation groupée' },
-              { icon: 'cards', title: 'Packs', desc: '10 joueurs, tu gardes 6' },
+            <Seg value={marketTab} onChange={setMarketTab} options={[
+              { v: 'encheres', label: 'Enchères' },
+              { v: 'packs', label: 'Packs' },
             ]} />
-          </React.Fragment>
-        )}
+            <div style={{ height: 10 }} />
 
-        {tab === 'match' && !runMatch && (
+            {marketTab === 'encheres' && (
+              <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 12 }}>
+                {DEMO_MARKET_PLAYERS.map(p => (
+                  <Surface key={p.id} onClick={() => setDetail(p)} style={{ padding: 10, cursor: 'pointer' }}>
+                    <div style={{ display: 'flex', justifyContent: 'center' }}>
+                      <PlayerCard player={withBoost(p)} w={100} interactive={false} flippable={false} cardStyle={cardStyle} />
+                    </div>
+                    <div style={{ textAlign: 'center', marginTop: 6 }}>
+                      <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 5 }}>
+                        <Flag code={p.country} w={14} />
+                        <span style={{ fontFamily: 'Archivo,sans-serif', fontWeight: 800, fontSize: 11 }}>{p.name.split(' ').pop()}</span>
+                      </div>
+                      <div style={{ fontSize: 9.5, color: cardVisualOf(p.rarity).ring, fontWeight: 800, marginTop: 2 }}>{cardVisualOf(p.rarity).label}</div>
+                    </div>
+                    <div style={{ height: 8 }} />
+                    <Btn full size="sm" kind="dark" onClick={e => { e.stopPropagation(); }}>Miser</Btn>
+                  </Surface>
+                ))}
+              </div>
+            )}
+
+            {marketTab === 'packs' && (
+              <MarketPackSection onBuyPack={flashPack} />
+            )}
+          </React.Fragment>
+        ) : tab === 'match' && !runMatch ? (
           <React.Fragment>
             <Surface glow="rgba(201,146,46,0.2)" style={{ padding: 16, marginBottom: 14, textAlign: 'center' }}>
               <IconBadge name={step.icon} size={52} iconSize={26} />
@@ -91,10 +119,24 @@ function ProductDemo({ onClose, cardStyle = 'blason' }) {
               </div>
             </Surface>
 
-            <div style={{ display: 'flex', justifyContent: 'center', gap: 10, marginBottom: 14, overflowX: 'auto' }}>
-              {demoPlayers.all.slice(0, 4).map(p => (
-                <PlayerCard key={p.id} player={p} w={78} interactive={false} flippable={false} cardStyle={cardStyle} />
-              ))}
+            <div style={{ display: 'flex', gap: 8, marginBottom: 14, alignItems: 'stretch' }}>
+              <div style={{ flex: 1, minWidth: 0 }}>
+                <div style={{ fontSize: 9, fontWeight: 800, color: MANAGERS[0]?.color, textAlign: 'center', marginBottom: 6, fontFamily: 'Archivo,sans-serif' }}>{MANAGERS[0]?.name}</div>
+                <div style={{ display: 'flex', gap: 3, justifyContent: 'center' }}>
+                  {teamA.outfield.map(p => (
+                    <PlayerCard key={p.id} player={p} w={54} interactive={false} flippable={false} cardStyle={cardStyle} />
+                  ))}
+                </div>
+              </div>
+              <div style={{ width: 2, background: 'linear-gradient(180deg, transparent, rgba(201,146,46,0.5), transparent)', flexShrink: 0 }} />
+              <div style={{ flex: 1, minWidth: 0 }}>
+                <div style={{ fontSize: 9, fontWeight: 800, color: MANAGERS[2]?.color, textAlign: 'center', marginBottom: 6, fontFamily: 'Archivo,sans-serif' }}>{MANAGERS[2]?.name}</div>
+                <div style={{ display: 'flex', gap: 3, justifyContent: 'center' }}>
+                  {teamB.outfield.map(p => (
+                    <PlayerCard key={p.id} player={p} w={54} interactive={false} flippable={false} cardStyle={cardStyle} />
+                  ))}
+                </div>
+              </div>
             </div>
 
             <Surface style={{ padding: 14, display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 16 }}>
@@ -109,9 +151,9 @@ function ProductDemo({ onClose, cardStyle = 'blason' }) {
             <div style={{ height: 14 }} />
             <Btn full size="lg" onClick={() => setRunMatch(true)}>Voir un extrait de match →</Btn>
           </React.Fragment>
-        )}
+        ) : null}
 
-        {runMatch && (
+        {runMatch && demoReady && (
           <div style={{ position: 'relative', minHeight: 420, borderRadius: 18, overflow: 'hidden', border: '1px solid ' + C.line }}>
             <MatchFlow midA="m1" midB="m3" seed={4242} replay onExit={() => setRunMatch(false)} isMobile />
           </div>

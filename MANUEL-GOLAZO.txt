@@ -1,0 +1,426 @@
+================================================================================
+                         GOLAZO — MANUEL DU JEU
+              Fantasy football · Coupe du Monde 2026 · entre potes
+================================================================================
+
+Ce document explique toutes les règles de GOLAZO : création de ligue, marché
+des transferts, composition d'équipe, et surtout comment un match est simulé
+statistiquement (probabilité de réussir une action, puis de marquer ou non).
+
+
+--------------------------------------------------------------------------------
+1. CONCEPT
+--------------------------------------------------------------------------------
+
+GOLAZO est un jeu de fantasy football privé entre amis, calé sur la Coupe du
+Monde 2026.
+
+  • Tu crées ou rejoins une ligue avec un code d'invitation.
+  • Tu constitues une équipe de 6 joueurs réels (pool CDM 2026) via le marché.
+  • Chaque équipe affronte les autres en matchs courts (~60 secondes).
+  • Un match ne rejoue pas 90 minutes de football : il condense le match en
+    6 « moments forts » tirés au sort (possession, corner, contre-attaque,
+    duel 1v1, penalty…).
+  • Les stats de tes cartes (vitesse, tir, dribble, passe, physique, défense)
+    déterminent les probabilités de succès à chaque moment.
+  • Les performances réelles des joueurs en Coupe du Monde peuvent leur
+    donner des boosts temporaires.
+
+
+--------------------------------------------------------------------------------
+2. CRÉER SA LIGUE
+--------------------------------------------------------------------------------
+
+Étapes à l'inscription :
+
+  1. Pseudo et nom d'équipe.
+  2. Nation représentée (drapeau affiché à côté de ton nom).
+  3. Paramètres de ligue :
+     - Nom de la ligue.
+     - Durée du marché des transferts (1 à 24 h).
+     - Budget de départ identique pour tous (300 à 800 crédits, souvent 500).
+     - Code d'invitation à partager.
+
+Règles de ligue :
+
+  • Chaque manager possède une équipe unique de 6 joueurs.
+  • Un joueur du pool ne peut appartenir qu'à un seul manager dans la ligue.
+  • Matchs réguliers en poule (classement, pas d'élimination directe).
+  • Un nouveau match est prévu environ tous les 3 jours.
+
+
+--------------------------------------------------------------------------------
+3. TON ÉQUIPE (6 JOUEURS)
+--------------------------------------------------------------------------------
+
+Composition obligatoire :
+
+  • 1 gardien (GK)
+  • 3 joueurs de champ sur le terrain (DEF / MIL / ATT)
+  • 2 remplaçants sur le banc
+
+Sur le terrain pendant un match : 1 gardien + 3 joueurs de champ = 4 cartes
+actives. Le gardien n'intervient visuellement que lors d'une frappe ou d'un
+penalty ; pendant les phases de construction (possession, corner…), seuls les
+3 joueurs de champ de chaque équipe sont mis en avant.
+
+Chaque joueur a 6 statistiques (0–99) :
+
+  VIT  Vitesse
+  TIR  Tir
+  DRI  Dribble
+  PAS  Passe
+  PHY  Physique
+  DÉF  Défense
+
+Note globale (OVR) :
+
+  • Gardien : OVR = stat DÉF.
+  • Autres postes : moyenne pondérée selon le poste.
+    Exemple attaquant : tir et dribble comptent plus ; défenseur : défense et
+    physique comptent plus.
+
+Rareté visuelle des cartes :
+
+  Commun · Rare / Épique · Légendaire
+  (cosmétique + intensité visuelle ; l'OVR et les stats comptent en match)
+
+
+--------------------------------------------------------------------------------
+4. MARCHÉ DES TRANSFERTS
+--------------------------------------------------------------------------------
+
+Le marché se déroule en plusieurs phases.
+
+── 4.1 Enchères secrètes ──
+
+  • Tous les managers ont le même budget de crédits.
+  • Tu mises secrètement sur les joueurs que tu veux (par pas de 5 crédits).
+  • Personne ne voit les mises des autres avant la révélation.
+  • À la fin du marché : révélation groupée.
+  • Pour chaque joueur disputé : le plus offrant remporte le joueur.
+  • Si tu perds une enchère, tes crédits misés sur ce joueur sont perdus
+    (sauf cas de conflit pack, voir ci-dessous).
+
+── 4.2 Packs (marché de transferts) ──
+
+Deux packs fixes, payés en crédits du marché :
+
+  Pack Standard — 500 cr
+    10 joueurs proposés : 6 communs + 4 rares ou légendaires.
+    Tu en gardes 6.
+
+  Pack Premium — 750 cr
+    10 joueurs proposés : 5 communs + 4 rares + 1 légendaire.
+    Tu en gardes 6.
+
+Priorité pack :
+  Si un joueur que tu récupères via pack était aussi visé par une enchère
+  adverse, le pack l'emporte : tu obtiens le joueur et l'adversaire est
+  remboursé de sa mise sur ce joueur.
+
+── 4.3 Marché fixe (complément) ──
+
+  • Après les enchères / packs, s'il te manque des joueurs pour atteindre 6,
+    tu complètes au marché fixe : prix affiché, premier arrivé premier servi.
+  • Il faut au minimum 4 joueurs + 1 gardien pour valider l'équipe
+    (objectif final : 6 joueurs dont 1 GK).
+
+── 4.4 Boutique (hors marché initial) ──
+
+  Packs Bronze / Argent / Or / Élite / Légendaire achetables avec crédits
+  ou jetons. 3 joueurs proposés, tu en gardes 1. Probabilités de rareté
+  différentes selon le tier du pack.
+
+
+--------------------------------------------------------------------------------
+5. CLUB — RÔLES & COMPOSITION
+--------------------------------------------------------------------------------
+
+Avant chaque match, tu peux définir des rôles parmi tes 3 joueurs de champ :
+
+  Tireur de corner   → utilisé sur les corners (stat PAS clé)
+  Tireur de penalty  → utilisé sur les penalties (stat TIR)
+  Attaquant 1v1      → utilisé sur les duels (VIT × DRI)
+  Défenseur 1v1      → utilisé pour défendre les duels (DÉF × VIT × PHY)
+
+Tu peux faire entrer un remplaçant à la place d'un joueur de champ depuis
+l'écran Club (le gardien reste sur son poste).
+
+
+--------------------------------------------------------------------------------
+6. BOOSTS COUPE DU MONDE (temps réel)
+--------------------------------------------------------------------------------
+
+Certains joueurs reçoivent un bonus temporaire lié à leurs perfs réelles en CDM :
+
+  Exemple : +6 TIR si le joueur a marqué récemment.
+            +3 DRI ou +3 DÉF si son équipe nationale a gagné.
+
+Ces boosts s'ajoutent à la stat concernée (plafonnée à 99) uniquement pour
+le match en cours. Ils sont visibles sur la carte et dans le détail des duels.
+
+
+--------------------------------------------------------------------------------
+7. BONUS AVANT MATCH
+--------------------------------------------------------------------------------
+
+Avant le coup d'envoi, tu choisis un bonus (l'adversaire en reçoit un aussi) :
+
+  1. Boost d'équipe    → +4 sur une stat (VIT/TIR/DRI/PAS/PHY/DÉF) pour tous
+                         tes joueurs sur le terrain ce match-là.
+
+  2. Boost joueur      → +6 sur une stat d'un joueur précis de ton choix.
+
+  3. Penalty forcé     → l'un de tes 3 moments d'attaque devient un penalty.
+
+Tu peux planifier ce bonus depuis l'écran d'accueil avant le match.
+
+
+--------------------------------------------------------------------------------
+8. DÉROULEMENT D'UN MATCH
+--------------------------------------------------------------------------------
+
+Un match = exactement 6 moments forts.
+
+Tirage des moments :
+  • 3 moments pour l'équipe A, 3 pour l'équipe B, en alternance.
+  • Le type de chaque moment est tiré au sort avec des poids différents
+    (les penalties sont rares).
+
+Types de moments et fréquence relative au tirage :
+
+  Possession      poids 38   (le plus fréquent, le plus dur à marquer)
+  Corner          poids 27
+  Contre-attaque  poids 20
+  Duel 1v1        poids 12
+  Penalty         poids 5    (le plus rare, le plus dangereux)
+
+Déroulement visuel de chaque moment :
+
+  1. TIRAGE        — le type de moment est révélé ; on sait quelle équipe attaque.
+  2. ACTION        — les 3 joueurs de champ de chaque équipe sont affichés ;
+                     les stats s'affrontent ; une probabilité de réussite apparaît.
+  3a. Si l'action échoue → STOPPÉ (pas de frappe, pas de but possible).
+  3b. Si l'action réussit (sauf penalty) → FINITION : tireur vs gardien.
+  4. SUSPENSE      — probabilité de but affichée.
+  5. RÉSULTAT      — BUT, ARRÊT ou occasion manquée.
+
+Cas penalty : l'action est directement tireur vs gardien (pas de phase 3 joueurs).
+
+
+--------------------------------------------------------------------------------
+9. ALGORITHME DE SIMULATION — VUE D'ENSEMBLE
+--------------------------------------------------------------------------------
+
+Chaque moment est résolu en deux étapes mathématiques :
+
+  ÉTAPE A — L'action aboutit-elle à une occasion de tirer ?
+            → compare une force d'attaque (A_atk) à une force de défense (A_def)
+            → probabilité pMoment via une courbe logistique
+            → tirage aléatoire : si échec, moment terminé sans but
+
+  ÉTAPE B — (si succès et pas penalty déjà résolu en A)
+            L'occasion se transforme-t-elle en but ?
+            → probabilité pConvert tenant compte du tir de l'équipe et du
+              gardien adverse
+            → tirage aléatoire : but ou arrêt
+
+Formule générale de l'étape A :
+
+  pMoment = logistic( (A_atk - A_def) / k + bias )
+
+  où :
+    logistic(x) = 1 / (1 + e^(-x))
+    k = 12 pour la plupart des moments, k = 15 pour les penalties
+    bias = modificateur selon le type de moment (voir tableau ci-dessous)
+
+  pMoment est toujours bornée entre 4 % et 97 %.
+
+  Un nombre aléatoire r est tiré (générateur seedé pour rejeu identique).
+  L'action réussit si : r < pMoment
+
+Modificateurs bias (plus c'est haut, plus c'est facile de marquer) :
+
+  Possession      -0,85
+  Corner          -0,55
+  Contre-attaque  +0,05
+  Duel 1v1        +0,15
+  Penalty         +0,95
+
+Modificateurs de conversion en but (étape B) :
+
+  Possession      × 0,62
+  Corner          × 0,72
+  Contre-attaque  × 0,86
+  Duel 1v1        × 0,91
+  Penalty         × 1,00  (pas d'étape B séparée : le penalty = but direct si A gagne)
+
+
+--------------------------------------------------------------------------------
+10. CALCUL DÉTAILLÉ PAR TYPE DE MOMENT
+--------------------------------------------------------------------------------
+
+Notation : n(stat) = stat / 99  (normalisation entre 0 et 1)
+
+Les stats d'équipe (agg) sont la moyenne des 3 joueurs de champ sur le terrain.
+gkDef = stat DÉF du gardien titulaire.
+
+
+── 10.1 POSSESSION ──
+
+Joueur attaquant mis en avant : celui avec la meilleure PAS parmi les 3 de champ.
+
+  A_atk = 100 × n(PAS équipe) × n(DRI équipe)
+  A_def = DÉF moyenne défense (équipe adverse)
+
+Interprétation : une équipe qui combine passe et dribble collectivement a plus
+de chances de percer un bloc défensif.
+
+
+── 10.2 CORNER ──
+
+Tireur de corner (rôle assigné) + jeu de tête / finition collective.
+
+  A_atk = 0,5 × PAS(tireur) + 0,3 × PHY(moyenne des autres attaquants de champ)
+          + 0,2 × TIR(moyenne équipe attaquante)
+  A_def = 0,62 × DÉF(adverse) + 0,38 × TIR(adverse)
+
+
+── 10.3 CONTRE-ATTAQUE ──
+
+La défense adverse est affaiblie : le défenseur le plus faible en DÉF est
+exclu du calcul défensif (simule un joueur pris de vitesse).
+
+  A_atk = 100 × n(VIT équipe) × n(PAS équipe)
+  A_def = 100 × n(DÉF réduite) × n(VIT adverse) × 0,84
+
+  DÉF réduite = moyenne DÉF des 2 défenseurs restants (sans le plus faible).
+
+
+── 10.4 DUEL 1 CONTRE 1 ──
+
+Attaquant désigné (rôle duelAtt) vs défenseur désigné (rôle duelDef).
+
+  A_atk = 100 × √( n(VIT attaquant) × n(DRI attaquant) )
+  A_def = 100 × ∛( n(DÉF défenseur) × n(VIT défenseur) × n(PHY défenseur) )
+
+
+── 10.5 PENALTY ──
+
+Tireur désigné (rôle penalty) vs gardien adverse.
+
+  A_atk = TIR(tireur)          (valeur brute 0–99, pas normalisée ici)
+  A_def = gkDef                (DÉF du gardien)
+  k = 15
+  bias = +0,95
+
+Si l'étape A réussit → BUT automatiquement (pas de seconde probabilité).
+Si échec → ARRÊT du gardien.
+
+
+--------------------------------------------------------------------------------
+11. ÉTAPE B — DU BUT OU PAS (après action réussie)
+--------------------------------------------------------------------------------
+
+Uniquement pour possession, corner, contre-attaque et duel (pas penalty).
+
+  keeperSave = clamp( 0,18 + (gkDef - 50) / 130 , 0,12 , 0,62 )
+
+  Plus le gardien est fort en DÉF, plus keeperSave est élevé (il « vole »
+  des chances de but à l'attaquant).
+
+  convertMod = modificateur du type de moment (voir section 9)
+
+  pConvert = clamp(
+    ( 0,92 - keeperSave + (TIR équipe attaquante - 70) / 320 ) × convertMod ,
+    0,28 , 0,95
+  )
+
+  Un second tirage aléatoire détermine le résultat :
+    • si tirage < pConvert  → BUT
+    • sinon                 → ARRÊT du gardien
+
+Intuition :
+  • Une équipe qui tire bien (TIR collectif élevé) convertit mieux ses occasions.
+  • Un bon gardien (gkDef élevé) réduit fortement pConvert.
+  • Les possessions convertissent moins bien qu'un duel ou un penalty.
+
+
+--------------------------------------------------------------------------------
+12. EXEMPLE CHIFFRÉ SIMPLIFIÉ
+--------------------------------------------------------------------------------
+
+Corner. Équipe attaquante :
+  Tireur PAS 88, autres PHY moyen 75, TIR équipe 72.
+  A_atk = 0,5×88 + 0,3×75 + 0,2×72 = 44 + 22,5 + 14,4 = 80,9
+
+Équipe défenseuse : DÉF 68, TIR 65.
+  A_def = 0,62×68 + 0,38×65 = 42,16 + 24,7 = 66,86
+
+  Écart = 80,9 - 66,86 = 14,04
+  bias corner = -0,55
+  pMoment = logistic( 14,04/12 - 0,55 ) = logistic( 0,62 ) ≈ 65 %
+
+→ 65 % de chances que l'action mène à une frappe.
+
+Si l'action réussit, gardien gkDef = 82 :
+  keeperSave = 0,18 + (82-50)/130 = 0,18 + 0,246 ≈ 0,43
+  pConvert = (0,92 - 0,43 + (72-70)/320) × 0,72
+           = (0,49 + 0,006) × 0,72 ≈ 36 %
+
+→ environ 36 % de chances de marquer après une action réussie.
+→ Probabilité totale de but sur ce corner ≈ 65 % × 36 % ≈ 23 %.
+
+
+--------------------------------------------------------------------------------
+13. SCORE FINAL & CLASSEMENT
+--------------------------------------------------------------------------------
+
+  • Chaque moment où scored = true ajoute 1 but à l'équipe attaquante.
+  • Score final = total des buts sur les 6 moments (typiquement 0 à 6).
+  • Victoire = 3 pts · Nul = 1 pt · Défaite = 0 pt en classement.
+  • Le classement suit les points, puis la différence de buts.
+
+
+--------------------------------------------------------------------------------
+14. ALÉATOIRE & REJEU
+--------------------------------------------------------------------------------
+
+  • Chaque match utilise une graine (seed) numérique.
+  • Le générateur aléatoire est déterministe : même seed + mêmes équipes +
+    mêmes bonus = exactement le même déroulé (utile pour revoir un match).
+  • L'aléatoire intervient à deux endroits par moment (sauf penalty) :
+      1) réussite de l'action
+      2) conversion en but
+  • Le tirage des 6 types de moments est aussi seedé.
+
+
+--------------------------------------------------------------------------------
+15. RÉCAPITULATIF STRATÉGIQUE
+--------------------------------------------------------------------------------
+
+  • Vise un gardien avec une bonne DÉF : il sauve les occasions adverses.
+  • Sur le marché, équilibre GK + 3 champ + 2 banc ; les rôles comptent.
+  • Assigne tes meilleurs PAS au corner, TIR au penalty, VIT/DRI au duel att,
+    DÉF/PHY au duel déf.
+  • Les boosts CDM en direct peuvent faire basculer un duel serré.
+  • Le bonus « penalty forcé » transforme un moment aléatoire en occasion
+    quasi décisive.
+  • Les possessions sont fréquentes mais peu converties : ne panique pas si
+    tu en concèdes beaucoup sans but encaissé.
+
+
+--------------------------------------------------------------------------------
+16. MODE TEST (développement)
+--------------------------------------------------------------------------------
+
+  Si tu crées un compte avec le pseudo « TEST », le jeu charge automatiquement
+  une ligue de démonstration complète (joueurs, classement, adversaires) pour
+  explorer toutes les fonctionnalités sans passer par le vrai parcours.
+
+
+================================================================================
+                              Bonne chance !
+                         GOLAZO — La CDM, entre potes.
+================================================================================

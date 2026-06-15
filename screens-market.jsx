@@ -417,4 +417,4 @@ function FixedMarket({ won, setWon, onDone, cardStyle, filters, setFilters }) {
   );
 }
 
-Object.assign(window, { MarketScreen });
+Object.assign(window, { MarketScreen, MarketHelpButton });
