@@ -80,7 +80,7 @@ function LeagueHome({ onStartMatch, onOpenMarket, onOpenSquad, onOpenShop, cardS
   const you = MANAGERS.find(m => m.you);
   const yourRow = you ? (STANDINGS.find(s => s.mid === you.id) || { pts: 0, w: 0, d: 0, l: 0, gf: 0, ga: 0 }) : null;
   const oppRow = you ? STANDINGS.find(s => s.mid !== you.id) : null;
-  const opp = oppRow ? MANAGERS.find(m => m.id === oppRow.mid) : MANAGERS[1];
+  const opp = oppRow ? MANAGERS.find(m => m.id === oppRow.mid) : null;
   const rank = you ? (rankOf(you.id) || 1) : 1;
   const boosts = Object.keys(LIVE_BOOSTS || {});
   const livePlayers = boosts.map(id => withBoost(byId(id))).filter(Boolean);
@@ -164,7 +164,7 @@ function LeagueHome({ onStartMatch, onOpenMarket, onOpenSquad, onOpenShop, cardS
             <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 8 }}>
               <JerseyDot mgr={you} size={32} />
               <span style={{ fontFamily: 'Archivo,sans-serif', fontWeight: 900, fontSize: 11, color: C.mut2 }}>VS</span>
-              <JerseyDot mgr={opp} size={32} />
+              {opp ? <JerseyDot mgr={opp} size={32} /> : <span style={{ fontSize: 11, color: C.mut2, fontWeight: 700 }}>—</span>}
             </div>
             {plannedBonus && (
               <div style={{ marginTop: 8, textAlign: 'center' }}>
@@ -175,8 +175,8 @@ function LeagueHome({ onStartMatch, onOpenMarket, onOpenSquad, onOpenShop, cardS
         </div>
         <div style={{ height: 12 }} />
         <div style={{ display: 'flex', gap: 8 }}>
-          <Btn kind="ghost" full onClick={() => setShowBonusPlan(true)}>Planifier bonus</Btn>
-          <Btn full size="lg" onClick={() => onStartMatch(opp.id)}>Voir le match</Btn>
+          <Btn kind="ghost" full onClick={() => setShowBonusPlan(true)} disabled={!youTeam}>Planifier bonus</Btn>
+          <Btn full size="lg" disabled={!opp || !youTeam} onClick={() => opp && onStartMatch(opp.id)}>Voir le match</Btn>
         </div>
       </Surface>
 

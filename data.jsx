@@ -3,14 +3,13 @@
 
 const COUNTRIES = { ...window.CDM_COUNTRIES };
 const PLAYERS = window.CDM_PLAYERS;
-const SQUADS = window.CDM_DEMO_SQUADS;
 
 const byId = (id) => PLAYERS.find(p => p.id === id);
 
 function resolveRoles(squads) {
   const roles = {};
   for (const [mid, sq] of Object.entries(squads)) {
-    const pls = [...sq.field, ...sq.bench].map(id => byId(id)).filter(Boolean);
+    const pls = [...(sq.field || []), ...(sq.bench || [])].map(id => byId(id)).filter(Boolean);
     const att = pls.filter(p => p.pos === 'ATT').sort((a, b) => b.ovr - a.ovr)[0] || pls[0];
     const def = pls.filter(p => p.pos === 'DEF').sort((a, b) => b.ovr - a.ovr)[0] || pls[0];
     const midP = pls.filter(p => p.pos === 'MID').sort((a, b) => b.stats.pas - a.stats.pas)[0] || pls[0];
@@ -23,7 +22,7 @@ function resolveRoles(squads) {
   }
   return roles;
 }
-const ROLES = resolveRoles(SQUADS);
+const ROLES = {};
 
 // ─── Rarity tiers ───
 const RARITY = {
@@ -106,7 +105,7 @@ function applyMySquad(playerIds) {
     field: others.slice(0, 3).map(p => p.id),
     bench: others.slice(3).map(p => p.id),
   };
-  ROLES.m1 = resolveRoles({ m1: SQUADS.m1 }).m1;
+  syncRoles();
   try { localStorage.setItem(MY_SQUAD_KEY, JSON.stringify(playerIds)); } catch { /* ignore */ }
 }
 
@@ -115,6 +114,24 @@ function loadMySquad() {
     const raw = localStorage.getItem(MY_SQUAD_KEY);
     if (raw) applyMySquad(JSON.parse(raw));
   } catch { /* ignore */ }
+}
+
+function isTestPseudo(pseudo) {
+  return normSearch(pseudo) === 'test';
+}
+
+function initialsOf(name) {
+  const s = (name || '').trim();
+  if (!s) return '?';
+  const parts = s.split(/\s+/).filter(Boolean);
+  if (parts.length >= 2) return (parts[0][0] + parts[parts.length - 1][0]).toUpperCase();
+  return s.slice(0, 2).toUpperCase();
+}
+
+function squadIdsFrom(mid, squads) {
+  const sq = (squads || SQUADS)[mid];
+  if (!sq) return [];
+  return [sq.gk, ...(sq.field || []), ...(sq.bench || [])].filter(Boolean);
 }
 
 const POS = {
@@ -166,19 +183,103 @@ function playerByName(name) {
 }
 
 // ─── Demo league — 4 friends, 6 players each ───
-const MANAGERS = [
+const DEMO_SQUADS = JSON.parse(JSON.stringify(window.CDM_DEMO_SQUADS));
+const SQUADS = JSON.parse(JSON.stringify(DEMO_SQUADS));
+
+const DEMO_MANAGERS = [
   { id: 'm1', name: 'Toi',   avatar: '🦊', color: '#ff8a1e', you: true },
   { id: 'm2', name: 'Léa',   avatar: '🐯', color: '#4ad6ff' },
   { id: 'm3', name: 'Karim', avatar: '🦅', color: '#4affa0' },
   { id: 'm4', name: 'Sofia', avatar: '🐉', color: '#ff5da2' },
 ];
+const MANAGERS = JSON.parse(JSON.stringify(DEMO_MANAGERS));
 
-const STANDINGS = [
+const DEMO_STANDINGS = [
   { mid: 'm3', pts: 9, w: 3, d: 0, l: 1, gf: 8, ga: 4 },
   { mid: 'm1', pts: 7, w: 2, d: 1, l: 1, gf: 6, ga: 5 },
   { mid: 'm4', pts: 4, w: 1, d: 1, l: 2, gf: 5, ga: 6 },
   { mid: 'm2', pts: 4, w: 1, d: 1, l: 2, gf: 4, ga: 8 },
 ];
+const STANDINGS = [];
+
+function restoreManagers(src) {
+  MANAGERS.length = 0;
+  src.forEach(m => MANAGERS.push({ ...m }));
+}
+
+function restoreStandings(src) {
+  STANDINGS.length = 0;
+  src.forEach(s => STANDINGS.push({ ...s }));
+}
+
+function restoreSquads(src) {
+  Object.keys(SQUADS).forEach(k => delete SQUADS[k]);
+  Object.keys(src).forEach(k => {
+    SQUADS[k] = JSON.parse(JSON.stringify(src[k]));
+  });
+}
+
+function syncRoles() {
+  const r = resolveRoles(SQUADS);
+  Object.keys(ROLES).forEach(k => delete ROLES[k]);
+  Object.assign(ROLES, r);
+}
+
+function buildTestProfile(overrides = {}) {
+  return {
+    pseudo: 'TEST',
+    teamName: 'FC Démo',
+    country: 'FRA',
+    leagueName: 'Ligue Démo',
+    marketHours: 6,
+    startCredits: 500,
+    inviteCode: 'TST-DEMO',
+    setupComplete: true,
+    marketComplete: true,
+    testMode: true,
+    mySquad: squadIdsFrom('m1', DEMO_SQUADS),
+    ...overrides,
+  };
+}
+
+function applyBlankState() {
+  restoreSquads({ m1: { gk: null, field: [], bench: [] } });
+  restoreStandings([]);
+  restoreManagers([{ id: 'm1', name: 'Toi', avatar: '🦊', color: '#ff8a1e', you: true }]);
+  syncRoles();
+  try { localStorage.removeItem(MY_SQUAD_KEY); } catch { /* ignore */ }
+}
+
+function applyTestState(profile) {
+  restoreSquads(DEMO_SQUADS);
+  restoreStandings(DEMO_STANDINGS);
+  restoreManagers(DEMO_MANAGERS);
+  syncRoles();
+  const p = { ...buildTestProfile(), ...profile };
+  applyProfile(p);
+  applyMySquad(p.mySquad || squadIdsFrom('m1', DEMO_SQUADS));
+  return p;
+}
+
+function syncGameStateFromProfile(profile) {
+  if (!profile) {
+    applyBlankState();
+    return;
+  }
+  if (isTestPseudo(profile.pseudo) || profile.testMode) {
+    applyTestState(profile);
+    return;
+  }
+  applyBlankState();
+  applyProfile(profile);
+  if (profile.mySquad?.length && profile.marketComplete) {
+    applyMySquad(profile.mySquad);
+  }
+}
+
+function bootstrapGameState() {
+  syncGameStateFromProfile(loadProfile());
+}
 
 const LIVE_BOOSTS = (() => {
   const b = (name, stat, amount, reason, big = false) => {
@@ -194,10 +295,10 @@ const LIVE_BOOSTS = (() => {
 })();
 
 function fieldOf(mid) {
-  const sq = SQUADS[mid];
-  const gk = withBoost(byId(sq.gk));
-  const outfield = sq.field.map(id => withBoost(byId(id)));
-  return { gk, outfield, all: [gk, ...outfield] };
+  const sq = SQUADS[mid] || { gk: null, field: [], bench: [] };
+  const gk = sq.gk ? withBoost(byId(sq.gk)) : null;
+  const outfield = (sq.field || []).map(id => withBoost(byId(id))).filter(Boolean);
+  return { gk, outfield, all: [gk, ...outfield].filter(Boolean) };
 }
 function withBoost(p) {
   if (!p) return p;
@@ -246,8 +347,7 @@ const AUCTION_POOL_NAMES = [
 ];
 const AUCTION_POOL_IDS = AUCTION_POOL_NAMES.map(playerByName).filter(Boolean).map(p => p.id);
 
-applyProfile(loadProfile());
-loadMySquad();
+bootstrapGameState();
 
 Object.assign(window, {
   COUNTRIES, RARITY, RARITY_ORDER, CARD_VISUAL, POS, STAT_KEYS, STAT_LABEL, STAT_ABBR,
@@ -257,4 +357,6 @@ Object.assign(window, {
   overall, fieldOf, withBoost, loadPlannedBonus, savePlannedBonus, bonusLabel,
   visualTierOf, cardVisualOf, loadProfile, saveProfile, applyProfile,
   hasSession, setSession, applyMySquad, loadMySquad, MY_SQUAD_KEY,
+  isTestPseudo, initialsOf, buildTestProfile, applyBlankState, applyTestState,
+  syncGameStateFromProfile, bootstrapGameState,
 });

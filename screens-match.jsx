@@ -22,10 +22,24 @@ function seqFor(m) {
 }
 
 function resolveActionSides(m, A, B, youSide) {
-  const atkMgr = m.atk === 'A' ? A.mgr : B.mgr;
-  const defMgr = m.atk === 'A' ? B.mgr : A.mgr;
-  const atkSide = { mgr: atkMgr, player: m.atkPlayer, lines: m.atkLines || [] };
-  const defSide = { mgr: defMgr, player: m.defPlayer, lines: m.defLines || [] };
+  const atkTeam = m.atk === 'A' ? A : B;
+  const defTeam = m.atk === 'A' ? B : A;
+  const atkMgr = atkTeam.mgr;
+  const defMgr = defTeam.mgr;
+  const atkSide = {
+    mgr: atkMgr,
+    player: m.atkPlayer,
+    fieldPlayers: atkTeam.field.outfield,
+    highlightId: m.atkPlayer?.id,
+    lines: m.atkLines || [],
+  };
+  const defSide = {
+    mgr: defMgr,
+    player: m.defPlayer,
+    fieldPlayers: defTeam.field.outfield,
+    highlightId: m.defPlayer?.id,
+    lines: m.defLines || [],
+  };
   const youAttack = m.atk === youSide;
   return { left: youAttack ? atkSide : defSide, right: youAttack ? defSide : atkSide, youAttack };
 }
@@ -400,6 +414,28 @@ function MomentDrawReveal({ m, atkMgr, youSide }) {
   );
 }
 
+function FieldPlayersRow({ players, cardStyle, highlightId }) {
+  if (!players?.length) return null;
+  const w = players.length > 2 ? 54 : 62;
+  return (
+    <div style={{ display: 'flex', gap: 3, justifyContent: 'center', width: '100%' }}>
+      {players.map(p => {
+        const active = highlightId === p.id;
+        return (
+          <div key={p.id} style={{
+            flex: '1 1 0', maxWidth: w + 10, display: 'flex', justifyContent: 'center',
+            opacity: active ? 1 : 0.7, transform: active ? 'scale(1.05)' : 'scale(1)',
+            transition: 'transform .25s, opacity .25s',
+            animation: active ? 'cardPop .45s ease both' : 'none',
+          }}>
+            <PlayerCard player={p} w={w} interactive={false} flippable={false} cardStyle={cardStyle} glowPulse={active} />
+          </div>
+        );
+      })}
+    </div>
+  );
+}
+
 function InvolvedPlayerCard({ player, cardStyle, highlight, gkGlow }) {
   if (!player) return null;
   const vis = cardVisualOf(player.rarity);
@@ -483,13 +519,13 @@ function MomentTypeBadge({ m }) {
   );
 }
 
-function SplitCamp({ side, align, cardStyle, highlight, gkGlow, animate }) {
+function SplitCamp({ side, align, cardStyle, highlight, gkGlow, animate, fieldPhase }) {
   const tint = side.mgr.color;
   return (
     <div style={{
       flex: '1 1 0', minWidth: 0, width: '50%',
       display: 'flex', flexDirection: 'column', alignItems: 'center',
-      padding: '8px 6px 72px', boxSizing: 'border-box',
+      padding: fieldPhase ? '6px 4px 72px' : '8px 6px 72px', boxSizing: 'border-box',
       background: `linear-gradient(180deg, ${tint}12 0%, transparent 55%)`,
     }}>
       <div style={{ display: 'flex', alignItems: 'center', gap: 6, marginBottom: 6, maxWidth: '100%', flexWrap: 'wrap', justifyContent: 'center' }}>
@@ -497,13 +533,17 @@ function SplitCamp({ side, align, cardStyle, highlight, gkGlow, animate }) {
         <span style={{ fontFamily: 'Archivo,sans-serif', fontWeight: 900, fontSize: 10, color: tint, textAlign: 'center' }}>{side.mgr.name}</span>
         {side.mgr.you && <Chip color={C.acc} solid style={{ fontSize: 8 }}>Toi</Chip>}
       </div>
-      <InvolvedPlayerCard player={side.player} cardStyle={cardStyle} highlight={highlight} gkGlow={gkGlow} />
+      {fieldPhase && side.fieldPlayers?.length ? (
+        <FieldPlayersRow players={side.fieldPlayers} cardStyle={cardStyle} highlightId={side.highlightId} />
+      ) : (
+        <InvolvedPlayerCard player={side.player} cardStyle={cardStyle} highlight={highlight} gkGlow={gkGlow} />
+      )}
       <CompactStatList lines={side.lines} align={align} animate={animate} />
     </div>
   );
 }
 
-function SplitMomentScreen({ m, sides, cardStyle, prob, probLabel, animate, pulse, gkLeft, gkRight, highlightPlayers }) {
+function SplitMomentScreen({ m, sides, cardStyle, prob, probLabel, animate, pulse, gkLeft, gkRight, highlightPlayers, fieldPhase }) {
   return (
     <div style={{ flex: 1, minHeight: 0, display: 'flex', flexDirection: 'column' }}>
       <MomentTypeBadge m={m} />
@@ -511,9 +551,9 @@ function SplitMomentScreen({ m, sides, cardStyle, prob, probLabel, animate, puls
         flex: 1, minHeight: 0, display: 'flex', flexDirection: 'row', alignItems: 'stretch',
         position: 'relative', borderRadius: 14, overflow: 'hidden', border: '1px solid ' + C.line,
       }}>
-        <SplitCamp side={sides.left} align="left" cardStyle={cardStyle} highlight={highlightPlayers} gkGlow={gkLeft} animate={animate} />
+        <SplitCamp side={sides.left} align="left" cardStyle={cardStyle} highlight={highlightPlayers} gkGlow={gkLeft} animate={animate} fieldPhase={fieldPhase} />
         <div style={{ width: 3, flexShrink: 0, alignSelf: 'stretch', background: 'linear-gradient(180deg, transparent, rgba(201,146,46,0.65), transparent)', boxShadow: '0 0 12px rgba(201,146,46,0.35)' }} />
-        <SplitCamp side={sides.right} align="right" cardStyle={cardStyle} highlight={highlightPlayers} gkGlow={gkRight} animate={animate} />
+        <SplitCamp side={sides.right} align="right" cardStyle={cardStyle} highlight={highlightPlayers} gkGlow={gkRight} animate={animate} fieldPhase={fieldPhase} />
         {prob != null && <CenterProbability pct={prob} label={probLabel} pulse={pulse} />}
       </div>
     </div>
@@ -1283,6 +1323,7 @@ function MatchFlow({ midA, midB, replay, seed, bonusA: initialBonusA, onExit, is
           m={m} sides={sides} cardStyle={cardStyle}
           prob={prob} probLabel={probLabel} animate highlightPlayers
           gkLeft={gkLeft} gkRight={gkRight}
+          fieldPhase={!m.penalty}
         />
       );
     }
@@ -1330,7 +1371,7 @@ function MatchFlow({ midA, midB, replay, seed, bonusA: initialBonusA, onExit, is
     if (micro === 'stopped') {
       return (
         <div style={{ flex: 1, minHeight: 0, position: 'relative' }}>
-          <SplitMomentScreen m={m} sides={actionSides} cardStyle={cardStyle} animate={false} />
+          <SplitMomentScreen m={m} sides={actionSides} cardStyle={cardStyle} animate={false} fieldPhase />
           <OutcomeBanner m={m} show />
         </div>
       );

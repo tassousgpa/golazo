@@ -8,7 +8,7 @@ function AppShell() {
   const [auth, setAuth] = useState(() => hasSession());
   const [profile, setProfile] = useState(() => {
     const p = loadProfile();
-    if (p?.setupComplete) applyProfile(p);
+    if (p?.setupComplete || isTestPseudo(p?.pseudo)) syncGameStateFromProfile(p);
     return p;
   });
   const [setup, setSetup] = useState(false);
@@ -55,6 +55,7 @@ function AppShell() {
         setAuth(true);
         const merged = await mergeRemoteState(loadProfile());
         if (cancelled) return;
+        syncGameStateFromProfile(merged);
         saveProfile(merged);
         setProfile(merged);
         if (merged.setupComplete && !merged.marketComplete) setFlow('createMarket');
@@ -107,16 +108,48 @@ function AppShell() {
 
     setSession(true);
     setAuth(true);
-    const merged = await mergeRemoteState({ ...(loadProfile() || {}), ...(pseudo && !loadProfile()?.pseudo ? { pseudo } : {}) });
+
+    if (isTestPseudo(pseudo)) {
+      const testProfile = applyTestState(buildTestProfile({ pseudo: pseudo?.trim() || 'TEST' }));
+      saveProfile(testProfile);
+      setProfile(testProfile);
+      setSetup(false);
+      setFlow(null);
+      setTab('home');
+      return;
+    }
+
+    if (mode === 'signup') {
+      applyBlankState();
+      const fresh = { pseudo: pseudo?.trim() || '' };
+      saveProfile(fresh);
+      setProfile(fresh);
+      setSetup(true);
+      return;
+    }
+
+    const merged = await mergeRemoteState(loadProfile() || {});
+    if (isTestPseudo(merged.pseudo)) {
+      const testProfile = applyTestState({ ...buildTestProfile(), ...merged });
+      saveProfile(testProfile);
+      setProfile(testProfile);
+      setSetup(false);
+      if (!testProfile.marketComplete) setFlow('createMarket');
+      else setTab('home');
+      return;
+    }
+
+    syncGameStateFromProfile(merged);
 
     if (merged.setupComplete) {
-      applyProfile(merged);
+      saveProfile(merged);
       setProfile(merged);
       setSetup(false);
       if (!merged.marketComplete) setFlow('createMarket');
       else setTab('home');
     } else {
       if (pseudo && !merged.pseudo) merged.pseudo = pseudo;
+      saveProfile(merged);
       setProfile(merged);
       setSetup(true);
     }
@@ -125,6 +158,15 @@ function AppShell() {
   const handleSetupComplete = async (p) => {
     setSetupError(null);
     let next = { ...p };
+    if (isTestPseudo(next.pseudo)) {
+      next = applyTestState(buildTestProfile(next));
+      saveProfile(next);
+      setProfile(next);
+      setSetup(false);
+      setFlow(null);
+      setTab('home');
+      return;
+    }
     if (isSupabaseReady()) {
       const profRes = await supabaseUpsertProfile(next);
       if (profRes.error) {

@@ -210,7 +210,7 @@ function PackOpening({ tier, packId, mode, onComplete, onClose }) {
                 {mode === 'market' ? `Choisis ${maxPicks} joueurs` : 'Choisis 1 joueur'}
               </div>
               <div style={{ color: C.mut, fontSize: 12.5, marginTop: 3 }}>
-                {mode === 'market' ? `${selected.length}/${maxPicks} sélectionnés` : (selected.length ? '1 sélectionné — confirmer' : 'Touche une carte')}
+                {mode === 'market' ? `${selected.length}/${maxPicks} sélectionnés` : (selected.length ? '1 sélectionné' : `${selected.length}/${maxPicks}`)}
               </div>
             </div>
           )}
@@ -290,9 +290,6 @@ function MarketPackSection({ onBuyPack }) {
           </Btn>
         </Surface>
       ))}
-      <div style={{ color: C.mut2, fontSize: 11.5, lineHeight: 1.45, textAlign: 'center', padding: '0 8px' }}>
-        Priorité pack sur les enchères rivales — crédits remboursés en cas de conflit.
-      </div>
     </div>
   );
 }

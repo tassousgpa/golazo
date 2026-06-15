@@ -72,12 +72,38 @@ function useMarketFilters() {
   return { filters, setFilters, filtered };
 }
 
+function MarketHelpButton() {
+  const [open, setOpen] = React.useState(false);
+  return (
+    <React.Fragment>
+      <button
+        type="button"
+        onClick={() => setOpen(true)}
+        aria-label="Aide marché"
+        style={{
+          width: 32, height: 32, borderRadius: '50%', border: '1px solid ' + C.line,
+          background: 'rgba(0,0,0,0.35)', color: C.mut, cursor: 'pointer',
+          fontFamily: 'Archivo,sans-serif', fontWeight: 900, fontSize: 15, lineHeight: 1,
+        }}
+      >?</button>
+      <Sheet open={open} onClose={() => setOpen(false)} title="Marché des transferts">
+        <RuleList items={[
+          { icon: 'whisper', title: 'Enchères secrètes', desc: 'Mise sur des joueurs précis. Le plus offrant remporte le joueur à la révélation.' },
+          { icon: 'cards', title: 'Packs', desc: '10 joueurs, tu gardes 6. Standard 500 cr · Premium 750 cr.' },
+          { icon: 'forbidden', title: 'Joueurs uniques', desc: '1 joueur = 1 manager dans la ligue.' },
+          { icon: 'bolt', title: 'Priorité pack', desc: 'Pack > enchère — crédits remboursés en cas de conflit.' },
+        ]} />
+      </Sheet>
+    </React.Fragment>
+  );
+}
+
 function MarketScreen({ onDone, cardStyle, onOpenPack, firstTime, profile }) {
   const startCredits = profile?.startCredits || DEFAULT_CREDITS;
   const leagueId = profile?.leagueId;
   const memberId = profile?.memberId;
 
-  const [phase, setPhase] = React.useState('intro');
+  const [phase, setPhase] = React.useState('bid');
   const [marketTab, setMarketTab] = React.useState('encheres');
   const [bids, setBids] = React.useState({});
   const [bidFor, setBidFor] = React.useState(null);
@@ -198,33 +224,9 @@ function MarketScreen({ onDone, cardStyle, onOpenPack, firstTime, profile }) {
     });
   };
 
-  const resultCount = filtered.length;
-
-  if (phase === 'intro') return (
-    <div>
-      <PageHeader sub="Coupe du Monde 2026" title="Marché des transferts" />
-      <div style={{ display: 'flex', gap: 10, marginBottom: 16 }}>
-        <CreditPill value={startCredits} /><span style={{ color: C.mut, fontSize: 12.5, alignSelf: 'center' }}>{PLAYERS.length} joueurs CDM · budget identique pour tous</span>
-      </div>
-      <div style={{ display: 'flex', gap: 11 }}>
-        <ModeCard icon="whisper" title="Enchères secrètes" desc="Mise sur des joueurs précis. Révélation à la fin." onClick={() => setPhase('bid')} tint="gold" />
-        <ModeCard icon="cards" title="Packs" desc="2 packs fixes : Standard 500 cr ou Premium 750 cr." onClick={() => { setPhase('bid'); setMarketTab('packs'); }} tint="gold" />
-      </div>
-      <Section title="Règles" />
-      <RuleList items={[
-        { icon: 'whisper', title: 'Enchères secrètes', desc: 'Le plus offrant remporte le joueur' },
-        { icon: 'cards', title: 'Packs', desc: '10 joueurs, tu gardes 6, priorité sur rivaux' },
-        { icon: 'forbidden', title: 'Joueurs uniques', desc: '1 joueur = 1 manager dans la ligue' },
-        { icon: 'bolt', title: 'Priorité pack', desc: 'Pack > enchère — remboursement auto' },
-      ]} />
-      <div style={{ height: 16 }} />
-      <Btn full size="lg" onClick={() => setPhase('bid')}>Accéder au marché →</Btn>
-    </div>
-  );
-
   if (phase === 'bid') return (
     <div>
-      <PageHeader title="Marché" pills={<CreditPill value={credits} size="sm" />} />
+      <PageHeader title="Marché" pills={<CreditPill value={credits} size="sm" />} right={<MarketHelpButton />} />
       {packConflicts.length > 0 && (
         <Banner icon="bolt" tint="lime" title={`${packConflicts.length} joueur(s) récupéré(s)`} body="Priorité pack — crédits d'enchère remboursés" />
       )}
@@ -232,18 +234,11 @@ function MarketScreen({ onDone, cardStyle, onOpenPack, firstTime, profile }) {
       <div style={{ height: 10 }} />
 
       {marketTab === 'encheres' && (
-        <React.Fragment>
-          <MarketFilters filters={filters} onChange={setFilters} compact />
-          <div style={{ color: C.mut2, fontSize: 11, marginBottom: 10, fontWeight: 700 }}>
-            {resultCount} joueur{resultCount > 1 ? 's' : ''} correspondant{resultCount > 1 ? 's' : ''}
-            {auctionCandidates.length < resultCount ? ` · ${auctionCandidates.length} affiché${auctionCandidates.length > 1 ? 's' : ''}` : ''}
-          </div>
-        </React.Fragment>
+        <MarketFilters filters={filters} onChange={setFilters} compact />
       )}
 
       {marketTab === 'encheres' && (
         <div>
-          <div style={{ color: C.mut, fontSize: 12, marginBottom: 12 }}>Touche une carte pour la vue 3D · bouton pour miser.</div>
           {auctionCandidates.length === 0 ? (
             <Surface style={{ padding: 16, textAlign: 'center' }}><div style={{ color: C.mut }}>Aucun joueur pour ces filtres.</div></Surface>
           ) : (
@@ -399,7 +394,7 @@ function FixedMarket({ won, setWon, onDone, cardStyle, filters, setFilters }) {
       <TopBar title="Marché fixe" sub={`${Math.max(0, need)} place${need > 1 ? 's' : ''} à remplir`} />
       <MarketFilters filters={filters} onChange={setFilters} compact />
       <div style={{ color: C.mut2, fontSize: 11, marginBottom: 8, fontWeight: 700 }}>{totalMatch} joueur{totalMatch > 1 ? 's' : ''} disponible{totalMatch > 1 ? 's' : ''}</div>
-      <Banner icon="bolt" tint="cyan" title="Au plus rapide !" body={<>Prix fixe, premier arrivé premier servi.{!hasGK && <span style={{ color: C.gold }}> Il te faut un gardien.</span>}</>} />
+      <Banner icon="bolt" tint="cyan" title="Marché fixe" body={!hasGK ? <>Prix fixe, premier arrivé premier servi. <span style={{ color: C.gold }}>Il te faut un gardien.</span></> : 'Prix fixe, premier arrivé premier servi.'} />
       <div style={{ display: 'flex', flexDirection: 'column', gap: 10, maxHeight: '52vh', overflowY: 'auto' }}>
         {filtered.length === 0 ? (
           <Surface style={{ padding: 16, textAlign: 'center' }}><div style={{ color: C.mut }}>Aucun joueur pour ces filtres.</div></Surface>

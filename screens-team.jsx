@@ -37,26 +37,34 @@ const ROLE_DEFS = [
 
 function ClubScreen({ cardStyle }) {
   const mid = 'm1';
-  const base = SQUADS[mid];
-  const [field, setField] = React.useState([base.gk, ...base.field]); // [gk, o1,o2,o3]
-  const [bench, setBench] = React.useState(base.bench);
-  const [roles, setRoles] = React.useState(ROLES[mid]);
+  const base = SQUADS[mid] || { gk: null, field: [], bench: [] };
+  const profile = loadProfile();
+  const [field, setField] = React.useState(() => [base.gk, ...(base.field || [])].filter(Boolean).length ? [base.gk, ...(base.field || [])] : []);
+  const [bench, setBench] = React.useState(base.bench || []);
+  const [roles, setRoles] = React.useState(ROLES[mid] || { corner: null, penalty: null, duelAtt: null, duelDef: null });
   const [detail, setDetail] = React.useState(null);
   const [rolePick, setRolePick] = React.useState(null);
   const [swap, setSwap] = React.useState(null);
 
-  const gk = withBoost(byId(field[0]));
+  const pseudo = profile?.pseudo || MANAGERS.find(m => m.you)?.name || 'Joueur';
+  const country = profile?.country || MANAGERS.find(m => m.you)?.country;
+
+  const gk = field[0] ? withBoost(byId(field[0])) : null;
   const outfield = field.slice(1).map(id => withBoost(byId(id))).filter(Boolean);
   if (!gk) {
     return (
-      <div style={{ textAlign: 'center', padding: 24 }}>
-        <div style={{ color: C.mut, marginBottom: 12 }}>Effectif incomplet — recharge la page ou refais le marché.</div>
-        <Btn onClick={() => window.location.reload()}>Recharger</Btn>
+      <div>
+        <ClubIdentityHeader pseudo={pseudo} country={country} teamName={profile?.teamName} />
+        <div style={{ textAlign: 'center', padding: 24 }}>
+          <div style={{ color: C.mut, marginBottom: 12 }}>Aucun joueur — complète le marché des transferts.</div>
+          <Btn onClick={() => window.location.reload()}>Recharger</Btn>
+        </div>
       </div>
     );
   }
   const agg = teamAgg({ gk, outfield });
-  const you = MANAGERS[0];
+  const you = MANAGERS.find(m => m.you) || MANAGERS[0];
+  const rank = rankOf(mid);
 
   const setRole = (k, id) => { setRoles(r => ({ ...r, [k]: id })); setRolePick(null); };
 
@@ -75,15 +83,16 @@ function ClubScreen({ cardStyle }) {
 
   return (
     <div>
+      <ClubIdentityHeader pseudo={pseudo} country={country} teamName={profile?.teamName || you.teamName} />
+
       <PageHeader
-        greeting={`#${rankOf(mid)} au classement`}
+        greeting={rank > 0 ? `#${rank} au classement` : null}
         title="Mon club"
         right={<>
           <Surface style={{ padding: '8px 14px', textAlign: 'center' }}>
             <div style={{ fontFamily: 'Archivo,sans-serif', fontWeight: 900, fontSize: 22, color: C.acc, lineHeight: 1 }}>{agg.ovr}</div>
             <div style={{ color: C.mut2, fontSize: 10, fontWeight: 800 }}>OVR ÉQUIPE</div>
           </Surface>
-          <Avatar mgr={you} size={42} />
         </>}
       />
 
@@ -129,7 +138,6 @@ function ClubScreen({ cardStyle }) {
 
       {/* roles */}
       <Section title="Rôles pour le match" />
-      <div style={{ color: C.mut, fontSize: 12, marginTop: -6, marginBottom: 10 }}>Définis pour la compétition · ajustable avant chaque match</div>
       <div style={{ display: 'flex', flexDirection: 'column', gap: 9 }}>
         {ROLE_DEFS.map(rd => {
           const pid = roles[rd.k]; const p = byId(pid);
@@ -179,11 +187,32 @@ function ClubScreen({ cardStyle }) {
   );
 }
 
+function ClubIdentityHeader({ pseudo, country, teamName }) {
+  return (
+    <div style={{ display: 'flex', alignItems: 'center', gap: 12, marginBottom: 16 }}>
+      <div style={{
+        width: 52, height: 52, borderRadius: 14, flexShrink: 0,
+        background: 'linear-gradient(145deg, rgba(201,146,46,0.28), rgba(0,0,0,0.35))',
+        border: '1.5px solid rgba(201,146,46,0.45)',
+        display: 'flex', alignItems: 'center', justifyContent: 'center',
+        fontFamily: 'Archivo,sans-serif', fontWeight: 900, fontSize: 18, color: C.accL,
+        letterSpacing: 0.5,
+      }}>
+        {initialsOf(pseudo)}
+      </div>
+      {country && <Flag code={country} w={36} />}
+      <div style={{ flex: 1, minWidth: 0 }}>
+        <div style={{ fontFamily: 'Archivo,sans-serif', fontWeight: 900, fontSize: 17, color: C.txt }}>{pseudo}</div>
+        {teamName && <div style={{ color: C.mut, fontSize: 12.5, marginTop: 2 }}>{teamName}</div>}
+      </div>
+    </div>
+  );
+}
+
 function CardDetail({ player, cardStyle }) {
   return (
     <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center' }}>
       <PlayerCard player={player} w={210} cardStyle={cardStyle} />
-      <div style={{ color: C.mut2, fontSize: 11.5, marginTop: 10 }}>Bouge la carte · touche pour retourner</div>
       {player.boost && (
         <Surface style={{ padding: 12, marginTop: 14, width: '100%', boxSizing: 'border-box', display: 'flex', gap: 10, alignItems: 'center', background: 'rgba(201,146,46,0.1)', borderColor: 'rgba(201,146,46,0.35)' }}>
           <IconBadge name="fire" size={38} iconSize={18} />
@@ -202,4 +231,4 @@ function CardDetail({ player, cardStyle }) {
   );
 }
 
-Object.assign(window, { ClubScreen, Pitch, CardDetail });
+Object.assign(window, { ClubScreen, ClubIdentityHeader, Pitch, CardDetail });
