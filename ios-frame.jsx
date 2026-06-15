@@ -200,24 +200,28 @@ function IOSList({ header, children, dark = false }) {
 // ─────────────────────────────────────────────────────────────
 function IOSDevice({
   children, width = 402, height = 874, dark = false,
-  title, keyboard = false,
+  title, keyboard = false, fullscreen = false,
 }) {
+  const w = fullscreen ? '100%' : width;
+  const h = fullscreen ? '100dvh' : height;
   return (
     <div style={{
-      width, height, borderRadius: 48, overflow: 'hidden',
+      width: w, height: h, maxWidth: fullscreen ? '100vw' : undefined,
+      borderRadius: fullscreen ? 0 : 48, overflow: 'hidden',
       position: 'relative', background: dark ? '#000' : '#F2F2F7',
-      boxShadow: '0 40px 80px rgba(0,0,0,0.18), 0 0 0 1px rgba(0,0,0,0.12)',
+      boxShadow: fullscreen ? 'none' : '0 40px 80px rgba(0,0,0,0.18), 0 0 0 1px rgba(0,0,0,0.12)',
       fontFamily: '-apple-system, system-ui, sans-serif',
       WebkitFontSmoothing: 'antialiased',
     }}>
-      {/* dynamic island */}
-      <div style={{
-        position: 'absolute', top: 11, left: '50%', transform: 'translateX(-50%)',
-        width: 126, height: 37, borderRadius: 24, background: '#000', zIndex: 50,
-      }} />
+      {!fullscreen && (
+        <div style={{
+          position: 'absolute', top: 11, left: '50%', transform: 'translateX(-50%)',
+          width: 126, height: 37, borderRadius: 24, background: '#000', zIndex: 50,
+        }} />
+      )}
       {/* status bar (absolute) */}
-      <div style={{ position: 'absolute', top: 0, left: 0, right: 0, zIndex: 10 }}>
-        <IOSStatusBar dark={dark} />
+      <div style={{ position: 'absolute', top: 0, left: 0, right: 0, zIndex: 10, paddingTop: fullscreen ? 'env(safe-area-inset-top, 0px)' : 0 }}>
+        {!fullscreen && <IOSStatusBar dark={dark} />}
       </div>
       {/* nav + content */}
       <div style={{ height: '100%', display: 'flex', flexDirection: 'column' }}>
@@ -228,8 +232,9 @@ function IOSDevice({
       {/* home indicator — always on top */}
       <div style={{
         position: 'absolute', bottom: 0, left: 0, right: 0, zIndex: 60,
-        height: 34, display: 'flex', justifyContent: 'center', alignItems: 'flex-end',
-        paddingBottom: 8, pointerEvents: 'none',
+        height: fullscreen ? 'calc(20px + env(safe-area-inset-bottom, 0px))' : 34,
+        display: 'flex', justifyContent: 'center', alignItems: 'flex-end',
+        paddingBottom: fullscreen ? 'max(6px, env(safe-area-inset-bottom, 0px))' : 8, pointerEvents: 'none',
       }}>
         <div style={{
           width: 139, height: 5, borderRadius: 100,

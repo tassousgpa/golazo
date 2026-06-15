@@ -9,6 +9,12 @@ const TWEAK_DEFAULTS = /*EDITMODE-BEGIN*/{
 function App() {
   const [t, setTweak] = useTweaks(TWEAK_DEFAULTS);
   window.__cardStyle = t.cardStyle;
+  const [isMobile, setIsMobile] = useState(() => typeof window !== 'undefined' && window.innerWidth < 520);
+  React.useEffect(() => {
+    const onResize = () => setIsMobile(window.innerWidth < 520);
+    window.addEventListener('resize', onResize);
+    return () => window.removeEventListener('resize', onResize);
+  }, []);
 
   const [auth, setAuth] = useState(false);
   const [tab, setTab] = useState('home');
@@ -62,14 +68,18 @@ function App() {
   const showNav = auth && !match && !flow;
 
   return (
-    <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', minHeight: '100vh', padding: 16, boxSizing: 'border-box' }}>
-      <IOSDevice dark>
+    <div style={{
+      display: 'flex', alignItems: isMobile ? 'stretch' : 'center', justifyContent: 'center',
+      minHeight: isMobile ? '100dvh' : '100vh', height: isMobile ? '100dvh' : 'auto',
+      padding: isMobile ? 0 : 16, boxSizing: 'border-box', overflow: 'hidden',
+    }}>
+      <IOSDevice dark fullscreen={isMobile}>
         <div style={{ height: '100%', position: 'relative', background: bg, color: C.txt, fontFamily: 'Hanken Grotesk, sans-serif', overflow: 'hidden' }}>
           {!auth ? (
             <Onboarding onAuth={() => { setAuth(true); setTab('home'); }} />
           ) : match ? (
-            <div style={{ position: 'absolute', inset: 0, zIndex: 150, background: bg }}>
-              <MatchFlow {...match} onExit={() => setMatch(null)} />
+            <div style={{ position: 'absolute', inset: 0, zIndex: 150, background: bg, display: 'flex', flexDirection: 'column', overflow: 'hidden' }}>
+              <MatchFlow {...match} onExit={() => setMatch(null)} isMobile={isMobile} />
             </div>
           ) : (
             <div style={{ height: '100%', overflowY: 'auto', WebkitOverflowScrolling: 'touch', padding: '58px 18px 110px' }} key={flow || tab}>

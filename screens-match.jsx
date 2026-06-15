@@ -1,5 +1,6 @@
-// screens-match.jsx — CINEMATIC auto-playing match: pack-opening reveals,
-// per-action micro-steps, animated stats, live commentary, ~45-60s, deterministic replay.
+// Layout mobile — safe areas + hauteur utilisable
+const MATCH_PAD_TOP = 'max(40px, env(safe-area-inset-top, 0px))';
+const MATCH_PAD_BOTTOM = 'max(6px, env(safe-area-inset-bottom, 0px))';
 
 const ORDER = ['intro', 'cards', 'stats', 'prob', 'suspense', 'duel', 'keeper', 'outcome'];
 const geq = (micro, s) => ORDER.indexOf(micro) >= ORDER.indexOf(s);
@@ -342,9 +343,9 @@ function Scoreboard({ A, B, sA, sB, bump }) {
   return <PremiumScoreboard A={A} B={B} sA={sA} sB={sB} minute="0'" bump={bump} />;
 }
 
-function MatchTopBar({ onBack, journee = 5, right }) {
+function MatchTopBar({ onBack, journee = 5, right, compact }) {
   return (
-    <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '0 16px 10px' }}>
+    <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: compact ? '0 10px 4px' : '0 16px 10px', flexShrink: 0 }}>
       <button onClick={onBack} style={{ width: 34, height: 34, borderRadius: 11, border: '1px solid ' + C.line, background: C.surf2, color: C.txt, cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
         <span style={{ display: 'inline-flex', transform: 'rotate(180deg)' }}><GzIcon name="chevron" size={16} color={C.txt} /></span>
       </button>
@@ -616,12 +617,10 @@ function CountdownPill() {
 function PitchShell({ children, highlight }) {
   return (
     <div style={{
-      position: 'relative', width: '100%', margin: '0 auto',
-      aspectRatio: '10 / 13', maxHeight: 'min(50vh, 380px)',
-      borderRadius: 16, overflow: 'hidden',
+      position: 'absolute', inset: 0, borderRadius: 12, overflow: 'hidden',
       background: 'linear-gradient(180deg, rgba(10,20,40,0.9) 0%, rgba(10,20,40,0.35) 10%, #14693e 14%, #0f5c36 50%, #0c4a2c 86%, rgba(10,20,40,0.35) 94%, rgba(10,20,40,0.9) 100%)',
       border: '1px solid rgba(201,146,46,0.25)',
-      boxShadow: highlight ? `inset 0 0 50px ${highlight}18, 0 6px 24px rgba(0,0,0,0.4)` : 'inset 0 0 40px rgba(0,0,0,0.35), 0 6px 24px rgba(0,0,0,0.4)',
+      boxShadow: highlight ? `inset 0 0 50px ${highlight}18` : 'inset 0 0 40px rgba(0,0,0,0.35)',
     }}>
       <div style={{ position: 'absolute', inset: 0, background: 'repeating-linear-gradient(0deg, rgba(255,255,255,0.035) 0 10%, transparent 10% 20%)' }} />
       {/* but haut */}
@@ -632,6 +631,16 @@ function PitchShell({ children, highlight }) {
       <div style={{ position: 'absolute', top: '50%', left: '50%', transform: 'translate(-50%,-50%)', width: '32%', aspectRatio: '1', borderRadius: '50%', border: '2px solid rgba(255,255,255,0.14)' }} />
       <div style={{ position: 'absolute', top: '50%', left: '50%', transform: 'translate(-50%,-50%)', width: 5, height: 5, borderRadius: '50%', background: 'rgba(255,255,255,0.25)' }} />
       {children}
+    </div>
+  );
+}
+
+function PitchFitBox({ children, highlight }) {
+  return (
+    <div style={{ flex: 1, minHeight: 0, width: '100%', display: 'flex', alignItems: 'center', justifyContent: 'center', overflow: 'hidden' }}>
+      <div style={{ height: '100%', width: 'auto', maxWidth: '100%', aspectRatio: '10 / 13', position: 'relative' }}>
+        <PitchShell highlight={highlight}>{children}</PitchShell>
+      </div>
     </div>
   );
 }
@@ -655,7 +664,7 @@ function placeGk(spots, push, team, side, w, opts = {}) {
   push(team.field.gk, pos.x, pos.y, w, { isGk: true, ...opts });
 }
 
-function MomentStatStrip({ m, micro, atkMgr, defMgr }) {
+function MomentStatStrip({ m, micro, atkMgr, defMgr, compact }) {
   const showStats = micro === 'stats';
   const showProb = geq(micro, 'prob') && micro !== 'outcome';
   if (!showStats && !showProb) return null;
@@ -664,15 +673,15 @@ function MomentStatStrip({ m, micro, atkMgr, defMgr }) {
     if (!line) return null;
     const pctW = Math.max(10, Math.min(100, line.value));
     return (
-      <div key={line.label + align} style={{ marginBottom: 6 }}>
-        <div style={{ fontSize: 9, fontWeight: 800, color: C.mut2, fontFamily: 'Archivo,sans-serif', textTransform: 'uppercase', letterSpacing: 0.4, textAlign: align, marginBottom: 3 }}>
+      <div key={line.label + align} style={{ marginBottom: compact ? 4 : 6 }}>
+        <div style={{ fontSize: compact ? 8 : 9, fontWeight: 800, color: C.mut2, fontFamily: 'Archivo,sans-serif', textTransform: 'uppercase', letterSpacing: 0.3, textAlign: align, marginBottom: 2 }}>
           {line.label}{line.team ? ' · équipe' : ''}{line.malus ? ' · malus' : ''}
         </div>
-        <div style={{ display: 'flex', alignItems: 'center', gap: 6, flexDirection: align === 'right' ? 'row-reverse' : 'row' }}>
-          <div style={{ flex: 1, height: 6, borderRadius: 999, background: 'rgba(0,0,0,0.4)', overflow: 'hidden' }}>
+        <div style={{ display: 'flex', alignItems: 'center', gap: 5, flexDirection: align === 'right' ? 'row-reverse' : 'row' }}>
+          <div style={{ flex: 1, height: compact ? 5 : 6, borderRadius: 999, background: 'rgba(0,0,0,0.4)', overflow: 'hidden' }}>
             <div style={{ width: pctW + '%', height: '100%', borderRadius: 999, background: `linear-gradient(90deg, ${line.malus ? C.pink : color}, ${line.malus ? C.pink : color}88)`, transition: 'width 1.1s ease' }} />
           </div>
-          <span style={{ fontFamily: 'Archivo,sans-serif', fontWeight: 900, fontSize: 16, color: line.malus ? C.pink : '#fff', minWidth: 26, textAlign: align }}>{line.malus ? '−' : ''}{line.value}</span>
+          <span style={{ fontFamily: 'Archivo,sans-serif', fontWeight: 900, fontSize: compact ? 14 : 16, color: line.malus ? C.pink : '#fff', minWidth: 24, textAlign: align }}>{line.malus ? '−' : ''}{line.value}</span>
         </div>
       </div>
     );
@@ -684,30 +693,30 @@ function MomentStatStrip({ m, micro, atkMgr, defMgr }) {
     : 'Réussite de l\'action';
 
   return (
-    <div style={{ marginTop: 10, padding: '10px 12px', borderRadius: 14, background: 'rgba(0,0,0,0.45)', border: '1px solid ' + C.line }}>
-      <div style={{ fontSize: 9, fontWeight: 800, color: C.accL, letterSpacing: 0.8, fontFamily: 'Archivo,sans-serif', textTransform: 'uppercase', marginBottom: 8, textAlign: 'center' }}>
+    <div style={{ padding: compact ? '8px 10px' : '10px 12px', borderRadius: 12, background: 'rgba(0,0,0,0.45)', border: '1px solid ' + C.line, flexShrink: 0, maxHeight: compact ? 130 : undefined, overflowY: compact ? 'auto' : 'visible' }}>
+      <div style={{ fontSize: 8, fontWeight: 800, color: C.accL, letterSpacing: 0.7, fontFamily: 'Archivo,sans-serif', textTransform: 'uppercase', marginBottom: compact ? 5 : 8, textAlign: 'center' }}>
         {MICRO_HINTS[micro]}
       </div>
       {showStats && (
-        <div style={{ display: 'flex', gap: 10 }}>
+        <div style={{ display: 'flex', gap: compact ? 6 : 10 }}>
           <div style={{ flex: 1, minWidth: 0 }}>
-            <div style={{ fontSize: 9, fontWeight: 900, color: atkMgr.color, fontFamily: 'Archivo,sans-serif', marginBottom: 4 }}>ATTAQUE</div>
+            <div style={{ fontSize: 8, fontWeight: 900, color: atkMgr.color, fontFamily: 'Archivo,sans-serif', marginBottom: 3 }}>ATTAQUE</div>
             {m.atkLines.map((l, i) => statBar(l, atkMgr.color, 'left'))}
           </div>
           <div style={{ width: 1, background: C.line, flexShrink: 0 }} />
           <div style={{ flex: 1, minWidth: 0 }}>
-            <div style={{ fontSize: 9, fontWeight: 900, color: defMgr.color, fontFamily: 'Archivo,sans-serif', marginBottom: 4, textAlign: 'right' }}>DÉFENSE</div>
+            <div style={{ fontSize: 8, fontWeight: 900, color: defMgr.color, fontFamily: 'Archivo,sans-serif', marginBottom: 3, textAlign: 'right' }}>DÉFENSE</div>
             {m.defLines.map((l, i) => statBar(l, defMgr.color, 'right'))}
           </div>
         </div>
       )}
       {showProb && (
-        <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 12, marginTop: showStats ? 8 : 0, paddingTop: showStats ? 8 : 0, borderTop: showStats ? '1px solid ' + C.line : 'none' }}>
+        <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', marginTop: showStats ? 6 : 0, paddingTop: showStats ? 6 : 0, borderTop: showStats ? '1px solid ' + C.line : 'none' }}>
           <div style={{ textAlign: 'center' }}>
-            <div style={{ fontFamily: 'Archivo,sans-serif', fontWeight: 900, fontSize: 38, color: m.penalty || micro === 'keeper' ? C.gold : atkMgr.color, lineHeight: 1 }}>
+            <div style={{ fontFamily: 'Archivo,sans-serif', fontWeight: 900, fontSize: compact ? 30 : 38, color: m.penalty || micro === 'keeper' ? C.gold : atkMgr.color, lineHeight: 1 }}>
               <AnimatedNumber to={pct} go dur={1100} />%
             </div>
-            <div style={{ fontSize: 10, color: C.mut2, fontWeight: 700, marginTop: 3 }}>{pctLabel}</div>
+            <div style={{ fontSize: 9, color: C.mut2, fontWeight: 700, marginTop: 2 }}>{pctLabel}</div>
           </div>
         </div>
       )}
@@ -715,14 +724,14 @@ function MomentStatStrip({ m, micro, atkMgr, defMgr }) {
   );
 }
 
-function MomentProgress({ ai, micro, total }) {
+function MomentProgress({ ai, micro, total, compact }) {
   const steps = ['intro', 'cards', 'stats', 'prob', 'suspense', 'outcome'];
   const idx = steps.indexOf(micro === 'duel' || micro === 'keeper' ? 'suspense' : micro);
   return (
-    <div style={{ marginBottom: 8, padding: '0 2px' }}>
-      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 6 }}>
-        <span style={{ fontSize: 10, fontWeight: 800, color: C.mut2, fontFamily: 'Archivo,sans-serif' }}>Moment {ai + 1} / {total}</span>
-        <span style={{ fontSize: 10, fontWeight: 800, color: C.accL, fontFamily: 'Archivo,sans-serif' }}>{MICRO_HINTS[micro]}</span>
+    <div style={{ marginBottom: compact ? 4 : 8, padding: '0 2px', flexShrink: 0 }}>
+      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: compact ? 4 : 6 }}>
+        <span style={{ fontSize: compact ? 9 : 10, fontWeight: 800, color: C.mut2, fontFamily: 'Archivo,sans-serif' }}>Moment {ai + 1} / {total}</span>
+        <span style={{ fontSize: compact ? 9 : 10, fontWeight: 800, color: C.accL, fontFamily: 'Archivo,sans-serif' }}>{MICRO_HINTS[micro]}</span>
       </div>
       <div style={{ display: 'flex', gap: 3 }}>
         {steps.map((s, i) => (
@@ -744,7 +753,7 @@ function MatchPitchScene({ m, micro, atkTeam, defTeam, atkMgr, defMgr, cardStyle
   const outcome = micro === 'outcome';
   const type = m.type;
   const ec = EVENT_COLORS[type] || C.acc;
-  const wSm = 36, wMd = 44, wLg = 58, wGk = 38;
+  const wSm = 28, wMd = 34, wLg = 46, wGk = 30;
   const atkGlow = outcome && m.scored;
   const defGlow = outcome && !m.scored && (m.penalty || m.won);
   const clashAnim = clash ? 'duelClash .6s ease-in-out infinite' : undefined;
@@ -803,13 +812,12 @@ function MatchPitchScene({ m, micro, atkTeam, defTeam, atkMgr, defMgr, cardStyle
     : null;
 
   return (
-    <div style={{ display: 'flex', flexDirection: 'column', minHeight: 0 }}>
-      <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 8, marginBottom: 6 }}>
-        <GzIcon name={m.icon} size={16} color={ec} />
-        <span style={{ fontFamily: 'Archivo,sans-serif', fontWeight: 900, fontSize: 13, letterSpacing: 0.6, color: ec }}>{m.label.toUpperCase()}</span>
-        <span style={{ fontSize: 10, color: C.mut2, fontWeight: 700 }}>· {atkMgr.name}</span>
+    <div style={{ flex: 1, minHeight: 0, display: 'flex', flexDirection: 'column', overflow: 'hidden' }}>
+      <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 6, marginBottom: 4, flexShrink: 0 }}>
+        <GzIcon name={m.icon} size={14} color={ec} />
+        <span style={{ fontFamily: 'Archivo,sans-serif', fontWeight: 900, fontSize: 11, letterSpacing: 0.5, color: ec }}>{m.label.toUpperCase()}</span>
       </div>
-      <PitchShell highlight={ec}>
+      <PitchFitBox highlight={ec}>
         {spots.map(s => (
           <PitchCardSpot key={s.key} player={s.player} left={s.left} top={s.top} w={s.w} cardStyle={cardStyle}
             dim={s.dim} anim={s.anim} glow={s.glow} isGk={s.isGk} />
@@ -817,16 +825,15 @@ function MatchPitchScene({ m, micro, atkTeam, defTeam, atkMgr, defMgr, cardStyle
         {outcome && banner && (
           <div style={{ position: 'absolute', inset: 0, display: 'flex', alignItems: 'center', justifyContent: 'center', pointerEvents: 'none', zIndex: 8, background: 'rgba(0,0,0,0.4)' }}>
             <div style={{
-              padding: '14px 32px', borderRadius: 16, animation: 'scorePop .55s',
+              padding: '12px 24px', borderRadius: 14, animation: 'scorePop .55s',
               background: m.scored ? `linear-gradient(135deg, ${atkMgr.color}, ${C.acc})` : 'rgba(12,10,22,0.94)',
               border: m.scored ? 'none' : '1.5px solid ' + C.line,
             }}>
-              <div style={{ fontFamily: 'Archivo,sans-serif', fontWeight: 900, fontSize: 30, letterSpacing: 1, color: m.scored ? '#160b02' : C.txt }}>{banner}</div>
+              <div style={{ fontFamily: 'Archivo,sans-serif', fontWeight: 900, fontSize: 26, letterSpacing: 1, color: m.scored ? '#160b02' : C.txt }}>{banner}</div>
             </div>
           </div>
         )}
-      </PitchShell>
-      <MomentStatStrip m={m} micro={micro} atkMgr={atkMgr} defMgr={defMgr} />
+      </PitchFitBox>
     </div>
   );
 }
@@ -911,16 +918,16 @@ function MatchBonusPicker({ team, value, onChange }) {
   );
 }
 
-function CommentaryBar({ text }) {
+function CommentaryBar({ text, compact }) {
   return (
-    <div style={{ padding: '11px 14px', background: 'rgba(0,0,0,0.4)', borderRadius: 14, border: '1px solid ' + C.line, display: 'flex', alignItems: 'center', gap: 9, minHeight: 22 }}>
-      <GzIcon name="mic" size={16} color={C.accL} />
-      <span key={text} style={{ fontFamily: 'Hanken Grotesk,sans-serif', fontWeight: 600, fontSize: 13.5, color: C.txt, animation: 'fadeIn .3s' }}>{text}</span>
+    <div style={{ padding: compact ? '8px 10px' : '11px 14px', background: 'rgba(0,0,0,0.4)', borderRadius: 12, border: '1px solid ' + C.line, display: 'flex', alignItems: 'center', gap: 8, flexShrink: 0 }}>
+      <GzIcon name="mic" size={compact ? 14 : 16} color={C.accL} />
+      <span key={text} style={{ fontFamily: 'Hanken Grotesk,sans-serif', fontWeight: 600, fontSize: compact ? 12 : 13.5, color: C.txt, animation: 'fadeIn .3s', lineHeight: 1.35 }}>{text}</span>
     </div>
   );
 }
 
-function MatchFlow({ midA, midB, replay, seed, bonusA: initialBonusA, onExit }) {
+function MatchFlow({ midA, midB, replay, seed, bonusA: initialBonusA, onExit, isMobile }) {
   const [sim, setSim] = React.useState(() => replay ? simulateMatch(midA, midB, seed || 777, { bonusA: initialBonusA }) : null);
   const [phase, setPhase] = React.useState(replay ? 'deal' : 'kickoff');
   const [dealt, setDealt] = React.useState(0);
@@ -987,7 +994,7 @@ function MatchFlow({ midA, midB, replay, seed, bonusA: initialBonusA, onExit }) 
   const m = phase === 'play' ? sim.moments[ai] : null;
   if (phase === 'play' && !m) {
     return (
-      <div style={{ height: '100%', display: 'flex', alignItems: 'center', justifyContent: 'center', paddingTop: 54 }}>
+      <div style={{ height: '100%', display: 'flex', alignItems: 'center', justifyContent: 'center', paddingTop: MATCH_PAD_TOP }}>
         <Btn onClick={onExit}>Retour</Btn>
       </div>
     );
@@ -1009,11 +1016,14 @@ function MatchFlow({ midA, midB, replay, seed, bonusA: initialBonusA, onExit }) 
   const minute = phase === 'play' ? `${12 + ai * 9}'` : "0'";
 
   return (
-    <div style={{ height: '100%', display: 'flex', flexDirection: 'column', paddingTop: 48 }} onClick={phase === 'play' ? skip : undefined}>
-      <MatchTopBar onBack={onExit} right={phase === 'play' ? (
-        <button onClick={e => { e.stopPropagation(); skip(); }} style={{ padding: '7px 11px', borderRadius: 11, border: '1px solid ' + C.line, background: C.surf2, color: C.mut, fontSize: 11, fontWeight: 800, fontFamily: 'Archivo,sans-serif', cursor: 'pointer' }}>Passer</button>
+    <div style={{
+      height: '100%', display: 'flex', flexDirection: 'column', overflow: 'hidden',
+      paddingTop: MATCH_PAD_TOP, paddingBottom: MATCH_PAD_BOTTOM, boxSizing: 'border-box',
+    }} onClick={phase === 'play' ? skip : undefined}>
+      <MatchTopBar onBack={onExit} compact={phase === 'play'} right={phase === 'play' ? (
+        <button onClick={e => { e.stopPropagation(); skip(); }} style={{ padding: '6px 10px', borderRadius: 10, border: '1px solid ' + C.line, background: C.surf2, color: C.mut, fontSize: 10, fontWeight: 800, fontFamily: 'Archivo,sans-serif', cursor: 'pointer' }}>Passer</button>
       ) : replay ? <Chip color={C.cyan}>Replay</Chip> : null} />
-      <div style={{ padding: '0 12px' }}>
+      <div style={{ padding: '0 10px', flexShrink: 0 }}>
         <PremiumScoreboard A={A} B={B} sA={sA} sB={sB} minute={minute} bump={bump} live={phase === 'play'} compact={phase === 'play'} />
       </div>
 
@@ -1052,15 +1062,16 @@ function MatchFlow({ midA, midB, replay, seed, bonusA: initialBonusA, onExit }) 
           {dealt >= 6 && <div style={{ fontFamily: 'Archivo,sans-serif', fontWeight: 900, fontSize: 17, color: C.acc, animation: 'scorePop .5s', display: 'flex', alignItems: 'center', gap: 6 }}><GzIcon name="bolt" size={18} color={C.accL} /> Que le match commence !</div>}
         </div>
       ) : (
-        <div style={{ flex: 1, display: 'flex', flexDirection: 'column', padding: '0 12px 10px', minHeight: 0, overflowY: 'auto', WebkitOverflowScrolling: 'touch' }}>
-          <MomentProgress ai={ai} micro={micro} total={6} />
+        <div style={{ flex: 1, minHeight: 0, display: 'flex', flexDirection: 'column', padding: '0 10px', gap: 4, overflow: 'hidden' }}>
+          <MomentProgress ai={ai} micro={micro} total={6} compact />
           <MatchPitchScene
             m={m} micro={micro}
             atkTeam={atkTeam} defTeam={defTeam}
             atkMgr={atkMgr} defMgr={defMgr}
             cardStyle={cardStyle}
           />
-          <div style={{ marginTop: 8, flexShrink: 0 }}><CommentaryBar text={commentary} /></div>
+          <MomentStatStrip m={m} micro={micro} atkMgr={atkMgr} defMgr={defMgr} compact />
+          <CommentaryBar text={commentary} compact />
         </div>
       )}
     </div>
@@ -1091,7 +1102,7 @@ function Kickoff({ A, B, bonusA: initialBonus, onStart, onExit }) {
   };
 
   return (
-    <div style={{ height: '100%', display: 'flex', flexDirection: 'column', paddingTop: 54 }}>
+    <div style={{ height: '100%', display: 'flex', flexDirection: 'column', paddingTop: MATCH_PAD_TOP, paddingBottom: MATCH_PAD_BOTTOM, boxSizing: 'border-box', overflow: 'hidden' }}>
       <MatchTopBar onBack={onExit} />
       <PremiumScoreboard A={A} B={B} sA={0} sB={0} minute="0'" />
       <MatchTabs tab={tab} onChange={setTab} />
@@ -1147,7 +1158,7 @@ function ResultScreen({ sim, sA, sB, replay, onExit, onReplay }) {
   };
 
   return (
-    <div style={{ height: '100%', display: 'flex', flexDirection: 'column', paddingTop: 54 }}>
+    <div style={{ height: '100%', display: 'flex', flexDirection: 'column', paddingTop: MATCH_PAD_TOP, paddingBottom: MATCH_PAD_BOTTOM, boxSizing: 'border-box', overflow: 'hidden' }}>
       <MatchTopBar onBack={onExit} />
       <PremiumScoreboard A={sim.A} B={sim.B} sA={sA} sB={sB} minute="FT" />
       <MatchTabs tab={tab} onChange={setTab} />
