@@ -1,6 +1,76 @@
-// screens-market.jsx — transfer market: blind auction + packs (shared budget)
+// screens-market.jsx — transfer market: blind auction + packs + player catalogue filters
 const START_CREDITS = 500;
-const POOL_IDS = ['p19', 'p20', 'p12', 'p13', 'p5', 'p1', 'p21', 'p14', 'p6', 'p2', 'p16', 'p23'];
+const MARKET_LIST_CAP = 60;
+
+function MarketFilters({ filters, onChange, compact }) {
+  const { q, country, pos, ovrMin, ovrMax } = filters;
+  const set = (patch) => onChange({ ...filters, ...patch });
+  const posOpts = [
+    { v: 'ALL', label: 'Tous' },
+    { v: 'GK', label: 'GAR' },
+    { v: 'DEF', label: 'DÉF' },
+    { v: 'MID', label: 'MIL' },
+    { v: 'ATT', label: 'ATT' },
+  ];
+  return (
+    <Surface style={{ padding: compact ? 10 : 12, marginBottom: 10, borderColor: 'rgba(201,146,46,0.25)' }}>
+      <div style={{ fontFamily: 'Archivo,sans-serif', fontWeight: 900, fontSize: 10, letterSpacing: 0.8, color: C.mut2, textTransform: 'uppercase', marginBottom: 8 }}>Rechercher un joueur</div>
+      <input
+        type="search"
+        placeholder="Nom du joueur…"
+        value={q}
+        onChange={e => set({ q: e.target.value })}
+        style={{
+          width: '100%', padding: '10px 12px', borderRadius: 10, border: '1px solid ' + C.line,
+          background: 'rgba(0,0,0,0.35)', color: C.txt, fontSize: 14, marginBottom: 10, outline: 'none',
+        }}
+      />
+      <div style={{ display: 'flex', gap: 6, flexWrap: 'wrap', marginBottom: 10 }}>
+        {posOpts.map(o => (
+          <button key={o.v} onClick={() => set({ pos: o.v })} style={{
+            padding: '5px 10px', borderRadius: 999, border: `1px solid ${pos === o.v ? C.acc : C.line}`,
+            background: pos === o.v ? 'rgba(201,146,46,0.15)' : 'transparent',
+            color: pos === o.v ? C.accL : C.mut, fontSize: 10, fontWeight: 800, fontFamily: 'Archivo,sans-serif', cursor: 'pointer',
+          }}>{o.label}</button>
+        ))}
+      </div>
+      <div style={{ marginBottom: 8 }}>
+        <div style={{ fontSize: 9, fontWeight: 800, color: C.mut2, letterSpacing: 0.5, marginBottom: 4, fontFamily: 'Archivo,sans-serif' }}>ÉQUIPE NATIONALE</div>
+        <select
+          value={country}
+          onChange={e => set({ country: e.target.value })}
+          style={{
+            width: '100%', padding: '8px 10px', borderRadius: 10, border: '1px solid ' + C.line,
+            background: C.surf2, color: C.txt, fontSize: 13, fontWeight: 600,
+          }}
+        >
+          <option value="ALL">Toutes les équipes ({COUNTRY_LIST.length})</option>
+          {COUNTRY_LIST.map(c => (
+            <option key={c.code} value={c.code}>{c.name}</option>
+          ))}
+        </select>
+      </div>
+      <div>
+        <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: 9, fontWeight: 800, color: C.mut2, letterSpacing: 0.5, marginBottom: 4, fontFamily: 'Archivo,sans-serif' }}>
+          <span>NOTE GLOBALE (OVR)</span>
+          <span style={{ color: C.accL }}>{ovrMin} – {ovrMax}</span>
+        </div>
+        <div style={{ display: 'flex', gap: 10, alignItems: 'center' }}>
+          <input type="range" min={58} max={99} value={ovrMin} onChange={e => set({ ovrMin: Math.min(+e.target.value, ovrMax) })} className="gz-range" style={{ flex: 1 }} />
+          <input type="range" min={58} max={99} value={ovrMax} onChange={e => set({ ovrMax: Math.max(+e.target.value, ovrMin) })} className="gz-range" style={{ flex: 1 }} />
+        </div>
+      </div>
+    </Surface>
+  );
+}
+
+function useMarketFilters() {
+  const [filters, setFilters] = React.useState({ q: '', country: 'ALL', pos: 'ALL', ovrMin: 58, ovrMax: 99 });
+  const filtered = React.useMemo(() => {
+    return filterPlayers(PLAYERS, filters).sort((a, b) => b.ovr - a.ovr);
+  }, [filters]);
+  return { filters, setFilters, filtered };
+}
 
 function MarketScreen({ onDone, cardStyle, onOpenPack }) {
   const [phase, setPhase] = React.useState('intro');
@@ -13,14 +83,23 @@ function MarketScreen({ onDone, cardStyle, onOpenPack }) {
   const [packSpent, setPackSpent] = React.useState(0);
   const [packConflicts, setPackConflicts] = React.useState([]);
   const [toast, setToast] = React.useState(null);
+  const { filters, setFilters, filtered } = useMarketFilters();
 
-  const pool = POOL_IDS.map(byId);
+  const ownedSet = React.useMemo(() => new Set(won), [won]);
+  const auctionCandidates = React.useMemo(() => {
+    const base = filters.q || filters.country !== 'ALL' || filters.pos !== 'ALL' || filters.ovrMin > 58 || filters.ovrMax < 99
+      ? filtered.filter(p => !ownedSet.has(p.id))
+      : AUCTION_POOL_IDS.map(byId).filter(p => p && !ownedSet.has(p.id));
+    return base.slice(0, MARKET_LIST_CAP);
+  }, [filtered, filters, ownedSet]);
+
   const bidTotal = Object.values(bids).reduce((s, x) => s + x, 0);
   const credits = START_CREDITS - bidTotal - packSpent;
 
   const flash = (msg) => { setToast(msg); setTimeout(() => setToast(null), 2400); };
 
   const runReveal = () => {
+    const pool = Object.keys(bids).map(byId).filter(Boolean);
     const res = pool.map(p => {
       const mine = bids[p.id] || 0;
       const rivals = [];
@@ -32,7 +111,6 @@ function MarketScreen({ onDone, cardStyle, onOpenPack }) {
       const all = [{ mgr: MANAGERS[0], amt: mine, you: true }, ...rivals].filter(b => b.amt > 0);
       all.sort((a, b) => b.amt - a.amt);
       const winner = all[0];
-      // if pack winner already owns this player, they yield
       const inPack = won.includes(p.id);
       const youWon = !inPack && (winner && winner.you);
       return { p, mine, all, winner: inPack ? null : winner, youWon };
@@ -52,7 +130,6 @@ function MarketScreen({ onDone, cardStyle, onOpenPack }) {
     if (credits < price) { flash('Crédits insuffisants !'); return; }
     setPackSpent(s => s + price);
     onOpenPack(tier, 'market', (selectedIds) => {
-      // check conflicts with auction bids
       const conflicts = selectedIds.filter(id => Object.keys(bids).includes(id));
       setWon(prev => [...new Set([...prev, ...selectedIds])]);
       if (conflicts.length) {
@@ -64,12 +141,13 @@ function MarketScreen({ onDone, cardStyle, onOpenPack }) {
     });
   };
 
-  // ─── INTRO ───
+  const resultCount = filtered.length;
+
   if (phase === 'intro') return (
     <div>
-      <PageHeader sub="Coupe entre potes" title="Marché des transferts" />
+      <PageHeader sub="Coupe du Monde 2026" title="Marché des transferts" />
       <div style={{ display: 'flex', gap: 10, marginBottom: 16 }}>
-        <CreditPill value={START_CREDITS} /><span style={{ color: C.mut, fontSize: 12.5, alignSelf: 'center' }}>budget de départ · identique pour tous</span>
+        <CreditPill value={START_CREDITS} /><span style={{ color: C.mut, fontSize: 12.5, alignSelf: 'center' }}>{PLAYERS.length} joueurs CDM · budget identique pour tous</span>
       </div>
       <div style={{ display: 'flex', gap: 11 }}>
         <ModeCard icon="whisper" title="Enchères secrètes" desc="Mise sur des joueurs précis. Révélation à la fin." onClick={() => setPhase('bid')} tint="gold" />
@@ -87,7 +165,6 @@ function MarketScreen({ onDone, cardStyle, onOpenPack }) {
     </div>
   );
 
-  // ─── BID + PACKS ───
   if (phase === 'bid') return (
     <div>
       <PageHeader title="Marché" pills={<CreditPill value={credits} size="sm" />} />
@@ -95,32 +172,45 @@ function MarketScreen({ onDone, cardStyle, onOpenPack }) {
         <Banner icon="bolt" tint="lime" title={`${packConflicts.length} joueur(s) récupéré(s)`} body="Priorité pack — crédits d'enchère remboursés" />
       )}
       <Seg value={marketTab} onChange={setMarketTab} options={[{ v: 'encheres', label: 'Enchères' }, { v: 'packs', label: 'Packs' }]} />
-      <div style={{ height: 14 }} />
+      <div style={{ height: 10 }} />
+      <MarketFilters filters={filters} onChange={setFilters} compact />
+      <div style={{ color: C.mut2, fontSize: 11, marginBottom: 10, fontWeight: 700 }}>
+        {resultCount} joueur{resultCount > 1 ? 's' : ''} correspondant{resultCount > 1 ? 's' : ''}
+        {auctionCandidates.length < resultCount ? ` · ${auctionCandidates.length} affiché${auctionCandidates.length > 1 ? 's' : ''}` : ''}
+      </div>
 
       {marketTab === 'encheres' && (
         <div>
-          <div style={{ color: C.mut, fontSize: 12, marginBottom: 12 }}>Touche un joueur pour miser. Mises secrètes jusqu'à la révélation.</div>
-          <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 12 }}>
-            {pool.map(p => {
-              const mine = bids[p.id];
-              const inPack = won.includes(p.id);
-              return (
-                <Surface key={p.id} style={{ padding: 10, position: 'relative', borderColor: inPack ? 'rgba(50,200,112,0.5)' : mine ? 'rgba(201,146,46,0.5)' : C.line, background: inPack ? 'rgba(50,200,112,0.06)' : C.surf }}>
-                  {inPack && <div style={{ position: 'absolute', top: 8, left: 8, zIndex: 5 }}><Chip color={C.lime} solid>✓ Pack</Chip></div>}
-                  <div style={{ display: 'flex', justifyContent: 'center' }}>
-                    <PlayerCard player={p} w={108} interactive={false} flippable={false} cardStyle={cardStyle} dim={inPack} />
-                  </div>
-                  <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginTop: 8 }}>
-                    <div style={{ color: C.mut, fontSize: 11 }}>valeur</div><CreditPill value={p.price} size="sm" />
-                  </div>
-                  <div style={{ height: 8 }} />
-                  {inPack ? <div style={{ textAlign: 'center', fontSize: 11.5, color: C.lime, fontWeight: 800 }}>Dans ton pack</div>
-                    : mine ? <Btn full size="sm" kind="pink" onClick={() => setBidFor(p)}>Misé : {mine}</Btn>
-                    : <Btn full size="sm" onClick={() => setBidFor(p)}>Miser</Btn>}
-                </Surface>
-              );
-            })}
-          </div>
+          <div style={{ color: C.mut, fontSize: 12, marginBottom: 12 }}>Touche un joueur pour miser. Filtre par nom, équipe, poste ou note.</div>
+          {auctionCandidates.length === 0 ? (
+            <Surface style={{ padding: 16, textAlign: 'center' }}><div style={{ color: C.mut }}>Aucun joueur pour ces filtres.</div></Surface>
+          ) : (
+            <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 12 }}>
+              {auctionCandidates.map(p => {
+                const mine = bids[p.id];
+                const inPack = won.includes(p.id);
+                return (
+                  <Surface key={p.id} style={{ padding: 10, position: 'relative', borderColor: inPack ? 'rgba(50,200,112,0.5)' : mine ? 'rgba(201,146,46,0.5)' : C.line, background: inPack ? 'rgba(50,200,112,0.06)' : C.surf }}>
+                    {inPack && <div style={{ position: 'absolute', top: 8, left: 8, zIndex: 5 }}><Chip color={C.lime} solid>✓ Pack</Chip></div>}
+                    <div style={{ display: 'flex', justifyContent: 'center' }}>
+                      <PlayerCard player={p} w={108} interactive={false} flippable={false} cardStyle={cardStyle} dim={inPack} />
+                    </div>
+                    <div style={{ textAlign: 'center', marginTop: 4 }}>
+                      <div style={{ fontFamily: 'Archivo,sans-serif', fontWeight: 800, fontSize: 11, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{p.name}</div>
+                      <div style={{ fontSize: 9.5, color: C.mut2, fontWeight: 700 }}>{COUNTRIES[p.country]?.name} · OVR {p.ovr}</div>
+                    </div>
+                    <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginTop: 6 }}>
+                      <div style={{ color: C.mut, fontSize: 11 }}>valeur</div><CreditPill value={p.price} size="sm" />
+                    </div>
+                    <div style={{ height: 8 }} />
+                    {inPack ? <div style={{ textAlign: 'center', fontSize: 11.5, color: C.lime, fontWeight: 800 }}>Dans ton pack</div>
+                      : mine ? <Btn full size="sm" kind="pink" onClick={() => setBidFor(p)}>Misé : {mine}</Btn>
+                      : <Btn full size="sm" onClick={() => setBidFor(p)}>Miser</Btn>}
+                  </Surface>
+                );
+              })}
+            </div>
+          )}
           <div style={{ height: 16 }} />
           <Btn full size="lg" disabled={Object.keys(bids).length === 0 && won.length === 0} onClick={runReveal}>Verrouiller mes enchères →</Btn>
           <div style={{ textAlign: 'center', color: C.mut2, fontSize: 11, marginTop: 8 }}>{Object.keys(bids).length} mise(s) · {won.length} joueur(s) pack</div>
@@ -139,7 +229,6 @@ function MarketScreen({ onDone, cardStyle, onOpenPack }) {
     </div>
   );
 
-  // ─── REVEAL ───
   if (phase === 'reveal') return (
     <div>
       <TopBar title="Révélation" sub="Enchères secrètes" />
@@ -176,10 +265,10 @@ function MarketScreen({ onDone, cardStyle, onOpenPack }) {
     </div>
   );
 
-  // ─── FIXED PRICE ───
-  if (phase === 'fixed') return <FixedMarket won={won} setWon={setWon} cardStyle={cardStyle} onDone={() => setPhase('summary')} />;
+  if (phase === 'fixed') return (
+    <FixedMarket won={won} setWon={setWon} cardStyle={cardStyle} onDone={() => setPhase('summary')} filters={filters} setFilters={setFilters} />
+  );
 
-  // ─── SUMMARY ───
   return (
     <div>
       <TopBar title="Ton équipe est prête" sub="Marché terminé" />
@@ -201,7 +290,7 @@ function BidPad({ player, max, current, onConfirm, cardStyle }) {
         <div>
           <div style={{ fontFamily: 'Archivo,sans-serif', fontWeight: 900, fontSize: 18 }}>{player.name}</div>
           <div style={{ color: C.mut, fontSize: 13, marginTop: 2 }}>{POS[player.pos].full} · {COUNTRIES[player.country].name}</div>
-          <div style={{ marginTop: 8 }}><Chip color={C.mut}>Valeur estimée <CreditPill value={player.price} size="sm" /></Chip></div>
+          <div style={{ marginTop: 8 }}><Chip color={C.mut}>OVR {player.ovr} · <CreditPill value={player.price} size="sm" /></Chip></div>
         </div>
       </div>
       <div style={{ textAlign: 'center', margin: '6px 0 4px' }}>
@@ -217,29 +306,34 @@ function BidPad({ player, max, current, onConfirm, cardStyle }) {
   );
 }
 
-function FixedMarket({ won, setWon, onDone, cardStyle }) {
+function FixedMarket({ won, setWon, onDone, cardStyle, filters, setFilters }) {
   const need = 6 - won.length;
   const ownedSet = new Set(won);
-  const avail = PLAYERS.filter(p => !ownedSet.has(p.id)).sort((a, b) => b.ovr - a.ovr).slice(0, 9);
-  const hasGK = won.some(id => byId(id).pos === 'GK');
+  const filtered = React.useMemo(() => {
+    return filterPlayers(PLAYERS.filter(p => !ownedSet.has(p.id)), filters).sort((a, b) => b.ovr - a.ovr).slice(0, MARKET_LIST_CAP);
+  }, [filters, won]);
+  const hasGK = won.some(id => byId(id)?.pos === 'GK');
+  const totalMatch = filterPlayers(PLAYERS.filter(p => !ownedSet.has(p.id)), filters).length;
+
   return (
     <div>
       <TopBar title="Marché fixe" sub={`${Math.max(0, need)} place${need > 1 ? 's' : ''} à remplir`} />
+      <MarketFilters filters={filters} onChange={setFilters} compact />
+      <div style={{ color: C.mut2, fontSize: 11, marginBottom: 8, fontWeight: 700 }}>{totalMatch} joueur{totalMatch > 1 ? 's' : ''} disponible{totalMatch > 1 ? 's' : ''}</div>
       <Banner icon="bolt" tint="cyan" title="Au plus rapide !" body={<>Prix fixe, premier arrivé premier servi.{!hasGK && <span style={{ color: C.gold }}> Il te faut un gardien.</span>}</>} />
-      <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
-        {avail.map(p => {
-          const owned = ownedSet.has(p.id);
-          return (
-            <Surface key={p.id} style={{ padding: 10, display: 'flex', alignItems: 'center', gap: 12 }}>
-              <MiniCard player={p} w={44} cardStyle={cardStyle} />
-              <div style={{ flex: 1, minWidth: 0 }}>
-                <div style={{ fontFamily: 'Archivo,sans-serif', fontWeight: 800, fontSize: 14 }}>{p.name}</div>
-                <div style={{ color: C.mut, fontSize: 11.5 }}>{POS[p.pos].full} · OVR {p.ovr} · {RARITY[p.rarity].label}</div>
-              </div>
-              {owned ? <Chip color={C.lime}>Acquis</Chip> : <Btn size="sm" disabled={need <= 0} onClick={() => setWon(w => [...w, p.id])}><CreditPill value={p.price} size="sm" /></Btn>}
-            </Surface>
-          );
-        })}
+      <div style={{ display: 'flex', flexDirection: 'column', gap: 10, maxHeight: '52vh', overflowY: 'auto' }}>
+        {filtered.length === 0 ? (
+          <Surface style={{ padding: 16, textAlign: 'center' }}><div style={{ color: C.mut }}>Aucun joueur pour ces filtres.</div></Surface>
+        ) : filtered.map(p => (
+          <Surface key={p.id} style={{ padding: 10, display: 'flex', alignItems: 'center', gap: 12 }}>
+            <MiniCard player={p} w={44} cardStyle={cardStyle} />
+            <div style={{ flex: 1, minWidth: 0 }}>
+              <div style={{ fontFamily: 'Archivo,sans-serif', fontWeight: 800, fontSize: 14 }}>{p.name}</div>
+              <div style={{ color: C.mut, fontSize: 11.5 }}>{POS[p.pos].full} · {COUNTRIES[p.country].name} · OVR {p.ovr} · {RARITY[p.rarity].label}</div>
+            </div>
+            <Btn size="sm" disabled={need <= 0} onClick={() => setWon(w => [...w, p.id])}><CreditPill value={p.price} size="sm" /></Btn>
+          </Surface>
+        ))}
       </div>
       <div style={{ height: 18 }} />
       <Btn full size="lg" disabled={won.length < 4 || !hasGK} onClick={onDone}>

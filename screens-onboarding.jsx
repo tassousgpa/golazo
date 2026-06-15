@@ -19,9 +19,9 @@ const CONCEPT_ITEMS = [
 ];
 
 const FEATURE_SLIDES = [
-  { title: 'LES STATS EN TEMPS RÉEL', body: 'Les performances de la Coupe du Monde boostent tes joueurs en direct.', icon: 'chart', player: 'p13' },
-  { title: 'PRIORITÉ PACK', body: 'Ouvre un pack et récupère tes joueurs avant tout le monde.', icon: 'cards', player: 'p1' },
-  { title: 'MATCHS EN DIRECT', body: '6 actions clés, suspense à chaque tirage, résultat en 60s.', icon: 'trophy', player: 'p19' },
+  { title: 'LES STATS EN TEMPS RÉEL', body: 'Les performances de la Coupe du Monde boostent tes joueurs en direct.', icon: 'chart', player: null, playerName: 'Kevin De Bruyne' },
+  { title: 'PRIORITÉ PACK', body: 'Ouvre un pack et récupère tes joueurs avant tout le monde.', icon: 'cards', player: null, playerName: 'Mike Maignan' },
+  { title: 'MATCHS EN DIRECT', body: '6 actions clés, suspense à chaque tirage, résultat en 60s.', icon: 'trophy', player: null, playerName: 'Kylian Mbappé' },
 ];
 
 function Onboarding({ onAuth }) {
@@ -34,7 +34,11 @@ function Onboarding({ onAuth }) {
   }, []);
 
   // Featured player cards for the concept card (fanned)
-  const featPlayers = [byId('p5'), byId('p1'), byId('p19')]; // DEF, GK, ATT
+  const featPlayers = [
+    playerByName('William Saliba'),
+    playerByName('Mike Maignan'),
+    playerByName('Kylian Mbappé'),
+  ].filter(Boolean);
 
   return (
     <div style={{ height: '100%', overflowY: 'auto', position: 'relative' }}>
@@ -104,7 +108,7 @@ function Onboarding({ onAuth }) {
             {FEATURE_SLIDES.map((slide, i) => (
               <div key={i} style={{ minWidth: '100%' }}>
                 <div style={{ background: 'rgba(255,255,255,0.038)', borderRadius: 16, border: '1px solid rgba(201,146,46,0.16)', padding: '12px 14px', display: 'flex', alignItems: 'center', gap: 14 }}>
-                  <MiniCard player={withBoost(byId(slide.player))} w={54} />
+                  <MiniCard player={withBoost(playerByName(slide.playerName) || featPlayers[0])} w={54} />
                   <div style={{ flex: 1, minWidth: 0 }}>
                     <div style={{ fontFamily: 'Archivo,sans-serif', fontWeight: 900, fontSize: 12.5, color: C.accL, letterSpacing: 0.8, marginBottom: 4 }}>{slide.title}</div>
                     <div style={{ color: C.mut, fontSize: 12.5, lineHeight: 1.4 }}>{slide.body}</div>
