@@ -2,32 +2,52 @@
 const MATCH_PAD_TOP = 'max(40px, env(safe-area-inset-top, 0px))';
 const MATCH_PAD_BOTTOM = 'max(6px, env(safe-area-inset-bottom, 0px))';
 
-const ORDER = ['draw', 'lineup', 'stats', 'edge', 'clash', 'keeper', 'outcome'];
-const geq = (micro, s) => ORDER.indexOf(micro) >= ORDER.indexOf(s);
+const ORDER = ['draw', 'action', 'finish', 'suspense', 'outcome', 'stopped'];
 
 const MICRO_HINTS = {
-  draw: 'Tirage du moment',
-  lineup: 'Les cartes entrent en jeu',
-  stats: 'Stats décisives',
-  edge: 'Qui a l\'avantage ?',
-  clash: 'L\'action se joue…',
-  keeper: 'Face au gardien',
+  draw: 'Tirage',
+  action: 'Le duel se joue',
+  finish: 'Face au gardien',
+  suspense: '…',
   outcome: 'Résultat',
-};
-
-const MOMENT_CRITERIA = {
-  duel: 'Vitesse + dribble contre défense, vitesse et physique.',
-  penalty: 'Tir du tireur face à la défense du gardien.',
-  corner: 'Qualité de passe du tireur, physique dans la surface.',
-  contre: 'Vitesse et passe en transition — défense réduite d\'un joueur.',
-  possession: 'Passe et dribble collectifs contre le pressing adverse.',
+  stopped: 'Action stoppée',
 };
 
 function seqFor(m) {
-  const head = [['draw', 2200], ['lineup', 2400], ['stats', 3000], ['edge', 2600]];
-  const clashDur = m.type === 'duel' ? 2400 : 1800;
-  if (m.penalty) return [...head, ['clash', 1400], ['keeper', 2200], ['outcome', 2800]];
-  return [...head, ['clash', clashDur], ['outcome', 2600]];
+  const draw = [['draw', 1600]];
+  const action = [['action', 3400]];
+  if (m.penalty) return [...draw, ['action', 3000], ['suspense', 1200], ['outcome', 2200]];
+  if (m.won) return [...draw, ...action, ['finish', 2600], ['suspense', 1100], ['outcome', 2200]];
+  return [...draw, ...action, ['stopped', 2200]];
+}
+
+function resolveActionSides(m, A, B, youSide) {
+  const atkMgr = m.atk === 'A' ? A.mgr : B.mgr;
+  const defMgr = m.atk === 'A' ? B.mgr : A.mgr;
+  const atkSide = { mgr: atkMgr, player: m.atkPlayer, lines: m.atkLines || [] };
+  const defSide = { mgr: defMgr, player: m.defPlayer, lines: m.defLines || [] };
+  const youAttack = m.atk === youSide;
+  return { left: youAttack ? atkSide : defSide, right: youAttack ? defSide : atkSide, youAttack };
+}
+
+function resolveFinishSides(m, A, B, youSide) {
+  const atkTeam = m.atk === 'A' ? A : B;
+  const defTeam = m.atk === 'A' ? B : A;
+  const shooter = m.atkPlayer;
+  const gk = m.penalty ? m.defPlayer : defTeam.field.gk;
+  const gkDef = m.penalty ? defTeam.agg.gkDef : gk?.stats?.def ?? defTeam.agg.gkDef;
+  const shooterSide = {
+    mgr: atkTeam.mgr,
+    player: shooter,
+    lines: [{ label: 'Tir', key: 'tir', value: shooter.stats.tir, bonus: shooter.boost?.stat === 'tir' ? shooter.boost.amount : 0 }],
+  };
+  const gkSide = {
+    mgr: defTeam.mgr,
+    player: gk,
+    lines: [{ label: 'Défense gardien', key: 'def', value: gkDef }],
+  };
+  const youAttack = m.atk === youSide;
+  return { left: youAttack ? shooterSide : gkSide, right: youAttack ? gkSide : shooterSide, youAttack };
 }
 
 function youSideOf(A, B) { return A.mgr.you ? 'A' : B.mgr.you ? 'B' : 'A'; }
@@ -375,9 +395,142 @@ function MomentDrawReveal({ m, atkMgr, youSide }) {
             <div style={{ fontFamily: 'Archivo,sans-serif', fontWeight: 900, fontSize: 14, color: atkMgr.color }}>{atkMgr.name} attaque</div>
           </div>
         </div>
-        {MOMENT_CRITERIA[m.type] && (
-          <div style={{ marginTop: 12, fontSize: 11.5, color: C.mut, lineHeight: 1.45, fontWeight: 500 }}>{MOMENT_CRITERIA[m.type]}</div>
-        )}
+      </div>
+    </div>
+  );
+}
+
+function InvolvedPlayerCard({ player, cardStyle, highlight, gkGlow }) {
+  if (!player) return null;
+  const vis = cardVisualOf(player.rarity);
+  const active = highlight || gkGlow;
+  return (
+    <div style={{
+      padding: 6, borderRadius: 18, textAlign: 'center',
+      background: active ? `linear-gradient(160deg, ${gkGlow ? '#66d9e840' : vis.ring + '40'}, transparent)` : 'transparent',
+      boxShadow: gkGlow ? '0 0 36px rgba(102,217,232,0.55)' : (active ? `0 0 28px ${vis.glow}` : 'none'),
+      animation: active ? 'cardEnter .5s ease both' : 'none',
+    }}>
+      <PlayerCard player={player} w={112} interactive={false} flippable={false} cardStyle={cardStyle} glowPulse={active} />
+      <div style={{ marginTop: 6, fontFamily: 'Archivo,sans-serif', fontWeight: 900, fontSize: 10, letterSpacing: 0.6, color: gkGlow ? '#66d9e8' : vis.text }}>
+        {gkGlow ? 'GARDIEN' : vis.label.toUpperCase()}
+      </div>
+    </div>
+  );
+}
+
+function CompactStatList({ lines, align, animate }) {
+  if (!lines?.length) return null;
+  const isRight = align === 'right';
+  return (
+    <div style={{ width: '100%', maxWidth: 148, marginTop: 10 }}>
+      {lines.map((line, i) => {
+        const col = line.malus ? C.pink : line.team ? C.cyan : (STAT_COL[line.key] || C.accL);
+        return (
+          <div key={line.label + i} style={{
+            marginBottom: 8, padding: '8px 10px', borderRadius: 10,
+            background: 'rgba(0,0,0,0.35)', border: `1px solid ${col}44`,
+            textAlign: isRight ? 'right' : 'left',
+            animation: animate ? `fadeIn .4s ${i * 0.08}s both` : 'none',
+          }}>
+            <div style={{ fontSize: 8.5, fontWeight: 800, color: C.mut2, letterSpacing: 0.5, fontFamily: 'Archivo,sans-serif', textTransform: 'uppercase' }}>
+              {line.label}{line.team ? ' · équipe' : ''}{line.malus ? ' · malus' : ''}
+            </div>
+            <div style={{ display: 'flex', alignItems: 'baseline', gap: 6, justifyContent: isRight ? 'flex-end' : 'flex-start', marginTop: 2 }}>
+              <span style={{ fontFamily: 'Archivo,sans-serif', fontWeight: 900, fontSize: 22, color: line.malus ? C.pink : '#fff', lineHeight: 1 }}>
+                {line.malus ? '−' : ''}{animate ? <AnimatedNumber to={line.value} go dur={700} /> : line.value}
+              </span>
+              {line.bonus > 0 && (
+                <span style={{ fontSize: 10, fontWeight: 800, color: C.lime, fontFamily: 'Archivo,sans-serif' }}>+{line.bonus}</span>
+              )}
+            </div>
+          </div>
+        );
+      })}
+    </div>
+  );
+}
+
+function CenterProbability({ pct, label, pulse }) {
+  return (
+    <div style={{
+      position: 'absolute', left: '50%', bottom: 14, transform: 'translateX(-50%)', zIndex: 10,
+      textAlign: 'center', padding: '10px 20px', borderRadius: 16,
+      background: 'rgba(8,10,20,0.92)', border: '2px solid rgba(201,146,46,0.55)',
+      boxShadow: '0 8px 32px rgba(0,0,0,0.55), 0 0 24px rgba(201,146,46,0.2)',
+      minWidth: 120, animation: pulse ? 'cardPulse 0.9s ease-in-out infinite' : 'fadeIn .35s',
+    }}>
+      <div style={{ fontFamily: 'Archivo,sans-serif', fontWeight: 900, fontSize: 36, color: C.accL, lineHeight: 1 }}>
+        <AnimatedNumber to={pct} go dur={900} />%
+      </div>
+      <div style={{ fontSize: 9, fontWeight: 800, color: C.mut2, letterSpacing: 0.6, marginTop: 4, fontFamily: 'Archivo,sans-serif', textTransform: 'uppercase' }}>
+        {label}
+      </div>
+    </div>
+  );
+}
+
+function MomentTypeBadge({ m }) {
+  const ec = EVENT_COLORS[m.type] || C.acc;
+  return (
+    <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 6, padding: '6px 0 8px', flexShrink: 0 }}>
+      <GzIcon name={m.icon} size={14} color={ec} />
+      <span style={{ fontFamily: 'Archivo,sans-serif', fontWeight: 900, fontSize: 11, letterSpacing: 0.8, color: ec, textTransform: 'uppercase' }}>{m.label}</span>
+    </div>
+  );
+}
+
+function SplitCamp({ side, align, cardStyle, highlight, gkGlow, animate }) {
+  const tint = side.mgr.color;
+  return (
+    <div style={{
+      flex: 1, minWidth: 0, display: 'flex', flexDirection: 'column', alignItems: 'center',
+      padding: '10px 8px 72px', position: 'relative',
+      background: `linear-gradient(180deg, ${tint}12 0%, transparent 55%)`,
+    }}>
+      <div style={{ display: 'flex', alignItems: 'center', gap: 6, marginBottom: 6 }}>
+        <Avatar mgr={side.mgr} size={22} />
+        <span style={{ fontFamily: 'Archivo,sans-serif', fontWeight: 900, fontSize: 11, color: tint }}>{side.mgr.name}</span>
+        {side.mgr.you && <Chip color={C.acc} solid style={{ fontSize: 8 }}>Toi</Chip>}
+      </div>
+      <InvolvedPlayerCard player={side.player} cardStyle={cardStyle} highlight={highlight} gkGlow={gkGlow} />
+      <CompactStatList lines={side.lines} align={align} animate={animate} />
+    </div>
+  );
+}
+
+function SplitMomentScreen({ m, sides, cardStyle, prob, probLabel, animate, pulse, gkLeft, gkRight, highlightPlayers }) {
+  return (
+    <div style={{ flex: 1, minHeight: 0, display: 'flex', flexDirection: 'column' }}>
+      <MomentTypeBadge m={m} />
+      <div style={{ flex: 1, minHeight: 0, display: 'flex', position: 'relative', borderRadius: 14, overflow: 'hidden', border: '1px solid ' + C.line }}>
+        <SplitCamp side={sides.left} align="left" cardStyle={cardStyle} highlight={highlightPlayers} gkGlow={gkLeft} animate={animate} />
+        <div style={{ width: 3, flexShrink: 0, background: 'linear-gradient(180deg, transparent, rgba(201,146,46,0.65), transparent)', boxShadow: '0 0 12px rgba(201,146,46,0.35)' }} />
+        <SplitCamp side={sides.right} align="right" cardStyle={cardStyle} highlight={highlightPlayers} gkGlow={gkRight} animate={animate} />
+        {prob != null && <CenterProbability pct={prob} label={probLabel} pulse={pulse} />}
+      </div>
+    </div>
+  );
+}
+
+function OutcomeBanner({ m, show }) {
+  if (!show) return null;
+  const scored = m.scored;
+  const stopped = !m.won && !m.penalty;
+  const label = scored ? 'BUT !' : stopped ? 'STOPPÉ' : 'ARRÊT !';
+  const color = scored ? C.lime : C.pink;
+  return (
+    <div style={{
+      position: 'absolute', inset: 0, display: 'flex', alignItems: 'center', justifyContent: 'center',
+      background: 'rgba(0,0,0,0.55)', zIndex: 20, animation: 'fadeIn .25s',
+    }}>
+      <div style={{
+        padding: '16px 32px', borderRadius: 16, animation: 'scorePop .5s',
+        background: scored ? `linear-gradient(135deg, ${C.lime}, ${C.acc})` : 'rgba(14,12,24,0.96)',
+        border: scored ? 'none' : `2px solid ${color}`,
+        boxShadow: scored ? `0 0 40px ${C.lime}66` : `0 0 24px ${color}44`,
+      }}>
+        <div style={{ fontFamily: 'Archivo,sans-serif', fontWeight: 900, fontSize: 32, letterSpacing: 2, color: scored ? '#160b02' : color }}>{label}</div>
       </div>
     </div>
   );
@@ -803,8 +956,8 @@ function MomentStatStrip({ m, micro, atkMgr, defMgr, compact }) {
 }
 
 function MomentProgress({ ai, micro, total, compact }) {
-  const steps = ['draw', 'lineup', 'stats', 'edge', 'clash', 'outcome'];
-  const mapMicro = micro === 'keeper' ? 'clash' : micro;
+  const steps = ['draw', 'action', 'finish', 'outcome'];
+  const mapMicro = micro === 'suspense' ? 'finish' : micro === 'stopped' ? 'outcome' : micro;
   const idx = Math.max(0, steps.indexOf(mapMicro));
   return (
     <div style={{ marginBottom: compact ? 4 : 8, padding: '0 2px', flexShrink: 0 }}>
@@ -1086,7 +1239,7 @@ function MatchFlow({ midA, midB, replay, seed, bonusA: initialBonusA, onExit, is
   const A = sim.A, B = sim.B;
   const youSide = youSideOf(A, B);
 
-  const resolvedUpTo = ai + (micro === 'outcome' ? 1 : 0);
+  const resolvedUpTo = ai + (['outcome', 'stopped'].includes(micro) ? 1 : 0);
   const sA = sim.moments.slice(0, resolvedUpTo).filter(x => x.scored && x.atk === 'A').length;
   const sB = sim.moments.slice(0, resolvedUpTo).filter(x => x.scored && x.atk === 'B').length;
 
@@ -1106,14 +1259,78 @@ function MatchFlow({ midA, midB, replay, seed, bonusA: initialBonusA, onExit, is
 
   const atkTeam = m ? (m.atk === 'A' ? A : B) : A;
   const defTeam = m ? (m.atk === 'A' ? B : A) : B;
-  const commentary = micro === 'draw' ? 'Un moment fort est tiré au sort…'
-    : micro === 'outcome' ? m.comments.result
-    : micro === 'edge' ? (m.edgeNarration || m.comments.mid)
-    : micro === 'stats' ? `${m.aLabel} contre ${m.dLabel}`
-    : micro === 'clash' ? `${m.duelPct}% de chances de réussir`
-    : micro === 'keeper' ? `${m.keeperPct}% de chances de marquer`
-    : micro === 'lineup' ? m.comments.reveal
-    : m.comments.mid;
+  const actionSides = m ? resolveActionSides(m, A, B, youSide) : null;
+  const finishSides = m ? resolveFinishSides(m, A, B, youSide) : null;
+
+  const renderPlay = () => {
+    if (micro === 'draw') return <MomentDrawReveal m={m} atkMgr={atkMgr} youSide={youSide} />;
+
+    if (micro === 'action') {
+      const prob = m.duelPct;
+      const probLabel = m.penalty ? 'Chance de marquer' : 'Réussite de l\'action';
+      const sides = m.penalty ? finishSides : actionSides;
+      const gkLeft = m.penalty && !finishSides.youAttack;
+      const gkRight = m.penalty && finishSides.youAttack;
+      return (
+        <SplitMomentScreen
+          m={m} sides={sides} cardStyle={cardStyle}
+          prob={prob} probLabel={probLabel} animate highlightPlayers
+          gkLeft={gkLeft} gkRight={gkRight}
+        />
+      );
+    }
+
+    if (micro === 'finish') {
+      const gkLeft = !finishSides.youAttack;
+      const gkRight = finishSides.youAttack;
+      return (
+        <SplitMomentScreen
+          m={m} sides={finishSides} cardStyle={cardStyle}
+          prob={m.keeperPct} probLabel="Chance de marquer" animate={false}
+          gkLeft={gkLeft} gkRight={gkRight}
+        />
+      );
+    }
+
+    if (micro === 'suspense') {
+      const sides = finishSides;
+      const prob = m.penalty ? m.duelPct : m.keeperPct;
+      const gkLeft = !finishSides.youAttack;
+      const gkRight = finishSides.youAttack;
+      return (
+        <div style={{ flex: 1, minHeight: 0, position: 'relative' }}>
+          <SplitMomentScreen
+            m={m} sides={sides} cardStyle={cardStyle}
+            prob={prob} probLabel="Suspense…" animate={false} pulse
+            gkLeft={gkLeft} gkRight={gkRight}
+          />
+        </div>
+      );
+    }
+
+    if (micro === 'outcome') {
+      const sides = m.penalty || m.won ? finishSides : actionSides;
+      const gkLeft = (m.penalty || m.won) && !finishSides.youAttack;
+      const gkRight = (m.penalty || m.won) && finishSides.youAttack;
+      return (
+        <div style={{ flex: 1, minHeight: 0, position: 'relative' }}>
+          <SplitMomentScreen m={m} sides={sides} cardStyle={cardStyle} animate={false} gkLeft={gkLeft} gkRight={gkRight} />
+          <OutcomeBanner m={m} show />
+        </div>
+      );
+    }
+
+    if (micro === 'stopped') {
+      return (
+        <div style={{ flex: 1, minHeight: 0, position: 'relative' }}>
+          <SplitMomentScreen m={m} sides={actionSides} cardStyle={cardStyle} animate={false} />
+          <OutcomeBanner m={m} show />
+        </div>
+      );
+    }
+
+    return null;
+  };
 
   const minute = phase === 'play' ? `${12 + ai * 9}'` : "0'";
 
@@ -1133,21 +1350,7 @@ function MatchFlow({ midA, midB, replay, seed, bonusA: initialBonusA, onExit, is
         <div style={{ flex: 1, minHeight: 0, display: 'flex', flexDirection: 'column', padding: '0 10px', gap: 4, overflow: 'hidden' }}>
           <MomentTimeline moments={sim.moments} active={ai} resolvedUpTo={resolvedUpTo} />
           <MomentProgress ai={ai} micro={micro} total={6} compact />
-          {micro === 'draw' ? (
-            <MomentDrawReveal m={m} atkMgr={atkMgr} youSide={youSide} />
-          ) : (
-            <>
-              <MatchPitchScene
-                m={m} micro={micro}
-                atkTeam={atkTeam} defTeam={defTeam}
-                atkMgr={atkMgr} defMgr={defMgr}
-                cardStyle={cardStyle}
-              />
-              <MomentStatStrip m={m} micro={micro} atkMgr={atkMgr} defMgr={defMgr} compact />
-              {micro === 'edge' && <AdvantagePanel m={m} atkMgr={atkMgr} defMgr={defMgr} compact />}
-            </>
-          )}
-          <CommentaryBar text={commentary} compact />
+          {renderPlay()}
         </div>
       ) : null}
     </div>
@@ -1164,7 +1367,7 @@ function Kickoff({ A, B, bonusA: initialBonus, onStart, onExit }) {
   const tabContent = {
     resume: (
       <Surface style={{ padding: 14, textAlign: 'center', borderColor: 'rgba(201,146,46,0.2)' }}>
-        <div style={{ color: C.mut, fontSize: 12.5, lineHeight: 1.45 }}>6 moments forts vécus un par un — possession, corners, contre-attaques, duels et penalties. Chaque tirage met tes cartes en scène. Choisis ton bonus avant le coup d'envoi.</div>
+        <div style={{ color: C.mut, fontSize: 12.5, lineHeight: 1.45 }}>6 moments forts — écran scindé, stats clés et probabilité en direct. Choisis ton bonus avant le coup d'envoi.</div>
       </Surface>
     ),
     compo: <PitchFormation4 team={youTeam} cardStyle={cardStyle} />,
