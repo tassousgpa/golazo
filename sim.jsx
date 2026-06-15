@@ -146,7 +146,49 @@ function drawMoments(rng) {
   return out;
 }
 
-// resolve one moment → result
+function buildEdgeNarration(type, atkPlayer, defPlayer, Aatk, Adef, atkT, defT) {
+  const diff = Math.round(Aatk - Adef);
+  const a = atkPlayer.name.split(' ').pop();
+  const d = defPlayer?.name?.split(' ').pop() || 'la défense';
+  const favor = diff > 6 ? 'atk' : diff < -6 ? 'def' : 'even';
+  let text;
+  switch (type) {
+    case 'duel':
+      text = diff > 6
+        ? `${a} combine vitesse et dribble — +${diff} pts sur ${d} dans ce duel.`
+        : diff < -6
+          ? `${d} est solide défensivement et freine ${a} (−${Math.abs(diff)} pts).`
+          : `${a} et ${d} sont au coude-à-coude : le moindre détail fera la différence.`;
+      break;
+    case 'penalty':
+      text = diff > 5
+        ? `Le tir de ${a} (${Math.round(Aatk)}) dépasse le gardien ${d} (${Math.round(Adef)}).`
+        : diff < -5
+          ? `${d} lit bien la frappe — avantage au gardien.`
+          : `Tir puissant contre gardien réactif : tout est possible.`;
+      break;
+    case 'corner':
+      text = diff > 5
+        ? `Le centre de ${a} profite d'une passe précise et d'un jeu de tête favorable.`
+        : `La défense de ${defT.mgr.name} est bien placée sur ce corner.`;
+      break;
+    case 'contre':
+      text = diff > 5
+        ? `Vitesse fulgurante : ${a} exploite l'espace laissé par la défense réduite.`
+        : `${defT.mgr.name} a replié vite malgré le joueur sorti du marquage.`;
+      break;
+    case 'possession':
+    default:
+      text = diff > 5
+        ? `${atkT.mgr.name} fait circuler le ballon avec plus de maîtrise collective (+${diff}).`
+        : diff < -5
+          ? `${defT.mgr.name} compresse l'espace et gêne la construction.`
+          : `Possession équilibrée — le pressing décidera de l'action.`;
+      break;
+  }
+  return { text, favor, diff };
+}
+
 function resolveMoment(m, A, B, rng) {
   const atkT = m.atk === 'A' ? A : B;
   const defT = m.atk === 'A' ? B : A;
@@ -256,6 +298,7 @@ function resolveMoment(m, A, B, rng) {
   };
   const duelPct = Math.round(pMoment * 100);
   const keeperPct = penalty ? Math.round(pMoment * 100) : Math.round((pConvert || 0) * 100);
+  const edge = buildEdgeNarration(m.type, atkPlayer, defPlayer, Aatk, Adef, atkT, defT);
 
   return {
     type: m.type, ...MOMENT_META[m.type],
@@ -264,6 +307,7 @@ function resolveMoment(m, A, B, rng) {
     A: Math.round(Aatk), D: Math.round(Adef), aLabel, dLabel,
     pMoment, won, pConvert, scored, explain,
     atkLines, defLines, keeperLabel, duelPct, keeperPct, comments, defExcluded,
+    edgeNarration: edge.text, edgeFavor: edge.favor, edgeDiff: edge.diff,
   };
 }
 

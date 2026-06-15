@@ -2,19 +2,35 @@
 const MATCH_PAD_TOP = 'max(40px, env(safe-area-inset-top, 0px))';
 const MATCH_PAD_BOTTOM = 'max(6px, env(safe-area-inset-bottom, 0px))';
 
-const ORDER = ['intro', 'cards', 'stats', 'prob', 'suspense', 'duel', 'keeper', 'outcome'];
+const ORDER = ['draw', 'lineup', 'stats', 'edge', 'clash', 'keeper', 'outcome'];
 const geq = (micro, s) => ORDER.indexOf(micro) >= ORDER.indexOf(s);
 
 const MICRO_HINTS = {
-  intro: 'Moment clé',
-  cards: 'Mise en place',
-  stats: 'Forces en jeu',
-  prob: 'Probabilité',
-  suspense: 'Tension…',
-  duel: 'Duel',
+  draw: 'Tirage du moment',
+  lineup: 'Les cartes entrent en jeu',
+  stats: 'Stats décisives',
+  edge: 'Qui a l\'avantage ?',
+  clash: 'L\'action se joue…',
   keeper: 'Face au gardien',
   outcome: 'Résultat',
 };
+
+const MOMENT_CRITERIA = {
+  duel: 'Vitesse + dribble contre défense, vitesse et physique.',
+  penalty: 'Tir du tireur face à la défense du gardien.',
+  corner: 'Qualité de passe du tireur, physique dans la surface.',
+  contre: 'Vitesse et passe en transition — défense réduite d\'un joueur.',
+  possession: 'Passe et dribble collectifs contre le pressing adverse.',
+};
+
+function seqFor(m) {
+  const head = [['draw', 2200], ['lineup', 2400], ['stats', 3000], ['edge', 2600]];
+  const clashDur = m.type === 'duel' ? 2400 : 1800;
+  if (m.penalty) return [...head, ['clash', 1400], ['keeper', 2200], ['outcome', 2800]];
+  return [...head, ['clash', clashDur], ['outcome', 2600]];
+}
+
+function youSideOf(A, B) { return A.mgr.you ? 'A' : B.mgr.you ? 'B' : 'A'; }
 
 // Terrain : but défendu en bas (y élevé), attaque vers le bas. Gardiens toujours sur leur ligne.
 const PITCH = {
@@ -25,13 +41,6 @@ const PITCH = {
   PEN_SPOT: { x: 50, y: 74 },
   BOX_TOP: 62,
 };
-
-function seqFor(m) {
-  const head = [['intro', 1200], ['cards', 1600], ['stats', 2400], ['prob', 1800]];
-  if (m.penalty) return [...head, ['suspense', 1000], ['keeper', 1700], ['outcome', 2200]];
-  if (m.type === 'duel') return [...head, ['suspense', 900], ['duel', 1800], ['outcome', 2200]];
-  return [...head, ['suspense', 1100], ['outcome', 2000]];
-}
 
 const easeOut = (p) => 1 - Math.pow(1 - p, 3);
 function AnimatedNumber({ from = 0, to, go, dur = 900 }) {
@@ -313,28 +322,84 @@ function MatchStatsPanel({ A, B }) {
   );
 }
 
-function EventRail({ sim, dealt, active, resolvedUpTo }) {
+function MomentTimeline({ moments, active, resolvedUpTo }) {
   return (
-    <div style={{ display: 'flex', gap: 6, justifyContent: 'center' }}>
-      {sim.moments.map((m, i) => {
-        const open = i < dealt;
-        const mgr = m.atk === 'A' ? sim.A.mgr : sim.B.mgr;
-        const isActive = i === active;
+    <div style={{ display: 'flex', gap: 4, justifyContent: 'center', padding: '0 2px', marginBottom: 4 }}>
+      {moments.map((mom, i) => {
         const done = i < resolvedUpTo;
+        const isActive = i === active;
+        const ec = EVENT_COLORS[mom.type] || C.acc;
         return (
-          <div key={i} style={{
-            flex: 1, maxWidth: 52, aspectRatio: '0.82', borderRadius: 9, position: 'relative',
-            background: open ? `linear-gradient(150deg, ${mgr.color}33, rgba(0,0,0,0.3))` : 'rgba(255,255,255,0.05)',
-            border: `1.5px solid ${isActive ? C.acc : open ? mgr.color + '66' : C.line}`,
-            boxShadow: isActive ? `0 0 12px ${C.acc}` : 'none',
-            display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', gap: 1,
-            transform: isActive ? 'scale(1.12)' : 'scale(1)', transition: 'all .3s', opacity: open ? 1 : 0.5,
-          }}>
-            <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', minHeight: 15 }}>{open ? <GzIcon name={m.icon} size={15} color={isActive ? C.accL : C.mut} /> : <span style={{ fontSize: 13, color: C.mut2, fontWeight: 800 }}>?</span>}</div>
-            {done && <div style={{ position: 'absolute', bottom: 2, display: 'flex', justifyContent: 'center' }}>{m.scored ? <GzIcon name="ball" size={9} color={C.acc} /> : <span style={{ fontSize: 9, color: C.mut2 }}>·</span>}</div>}
-          </div>
+          <div key={i} title={done ? mom.label : ''} style={{
+            flex: 1, height: 4, borderRadius: 999, maxWidth: 48,
+            background: done ? (mom.scored ? C.acc : 'rgba(255,255,255,0.22)') : isActive ? ec : 'rgba(255,255,255,0.08)',
+            boxShadow: isActive ? `0 0 8px ${ec}` : 'none',
+            transition: 'all .35s',
+            transform: isActive ? 'scaleY(1.5)' : 'scaleY(1)',
+          }} />
         );
       })}
+    </div>
+  );
+}
+
+function MomentDrawReveal({ m, atkMgr, youSide }) {
+  const isYours = m.atk === youSide;
+  const ec = EVENT_COLORS[m.type] || C.acc;
+  return (
+    <div style={{ flex: 1, minHeight: 0, display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', gap: 14, padding: '8px 16px' }}>
+      <div style={{ animation: 'momentDraw .55s ease both', textAlign: 'center' }}>
+        <div style={{ fontSize: 9, fontWeight: 800, color: C.mut2, letterSpacing: 1.6, textTransform: 'uppercase', fontFamily: 'Archivo,sans-serif' }}>Tirage — moment {m.i != null ? m.i + 1 : ''}</div>
+        <div style={{
+          width: 132, aspectRatio: '0.72', margin: '10px auto', borderRadius: 14, overflow: 'hidden', position: 'relative',
+          background: 'linear-gradient(155deg, rgba(18,14,30,0.96), rgba(8,6,18,0.98))',
+          border: `2px solid ${ec}`, boxShadow: `0 0 28px ${ec}55`,
+          display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', gap: 8,
+          animation: 'cardFlip .55s cubic-bezier(.2,.8,.2,1) both',
+        }}>
+          <div style={{ position: 'absolute', inset: 0, background: `radial-gradient(circle at 50% 40%, ${ec}22, transparent 65%)` }} />
+          <GzIcon name={m.icon} size={34} color={ec} />
+          <div style={{ fontFamily: 'Archivo,sans-serif', fontWeight: 900, fontSize: 12, color: '#fff', letterSpacing: 0.5, position: 'relative' }}>{m.label.toUpperCase()}</div>
+        </div>
+      </div>
+      <div style={{ animation: 'fadeIn .45s .25s both', textAlign: 'center', maxWidth: 300 }}>
+        <div style={{
+          display: 'inline-flex', alignItems: 'center', gap: 10, padding: '9px 18px', borderRadius: 999,
+          background: isYours ? 'rgba(201,146,46,0.18)' : 'rgba(0,0,0,0.45)',
+          border: `1.5px solid ${isYours ? C.acc : atkMgr.color}`,
+          boxShadow: isYours ? '0 0 16px rgba(201,146,46,0.25)' : `0 0 12px ${atkMgr.color}33`,
+        }}>
+          <Avatar mgr={atkMgr} size={26} />
+          <div style={{ textAlign: 'left' }}>
+            <div style={{ fontSize: 8.5, color: isYours ? C.accL : C.mut2, fontWeight: 900, textTransform: 'uppercase', letterSpacing: 0.7, fontFamily: 'Archivo,sans-serif' }}>{isYours ? 'Ton moment' : 'Adversaire'}</div>
+            <div style={{ fontFamily: 'Archivo,sans-serif', fontWeight: 900, fontSize: 14, color: atkMgr.color }}>{atkMgr.name} attaque</div>
+          </div>
+        </div>
+        {MOMENT_CRITERIA[m.type] && (
+          <div style={{ marginTop: 12, fontSize: 11.5, color: C.mut, lineHeight: 1.45, fontWeight: 500 }}>{MOMENT_CRITERIA[m.type]}</div>
+        )}
+      </div>
+    </div>
+  );
+}
+
+function AdvantagePanel({ m, atkMgr, defMgr, compact }) {
+  if (!m.edgeNarration) return null;
+  const favorColor = m.edgeFavor === 'atk' ? atkMgr.color : m.edgeFavor === 'def' ? defMgr.color : C.gold;
+  return (
+    <div style={{
+      padding: compact ? '10px 12px' : '12px 14px', borderRadius: 12, flexShrink: 0,
+      background: `linear-gradient(135deg, ${favorColor}12, rgba(0,0,0,0.5))`,
+      border: `1px solid ${favorColor}55`,
+      animation: 'fadeIn .4s',
+    }}>
+      <div style={{ fontSize: 8, fontWeight: 900, color: C.accL, letterSpacing: 0.8, fontFamily: 'Archivo,sans-serif', textTransform: 'uppercase', marginBottom: 6, textAlign: 'center' }}>Qui a l'avantage ?</div>
+      <div style={{ fontFamily: 'Hanken Grotesk,sans-serif', fontSize: compact ? 12.5 : 13.5, color: C.txt, lineHeight: 1.45, textAlign: 'center' }}>{m.edgeNarration}</div>
+      <div style={{ display: 'flex', gap: 10, marginTop: 8, justifyContent: 'center', alignItems: 'center' }}>
+        <span style={{ fontSize: 10, fontWeight: 900, color: atkMgr.color, fontFamily: 'Archivo,sans-serif' }}>ATQ {m.A}</span>
+        <span style={{ fontSize: 9, color: C.mut2, fontWeight: 800 }}>vs</span>
+        <span style={{ fontSize: 10, fontWeight: 900, color: defMgr.color, fontFamily: 'Archivo,sans-serif' }}>DEF {m.D}</span>
+      </div>
     </div>
   );
 }
@@ -645,16 +710,29 @@ function PitchFitBox({ children, highlight }) {
   );
 }
 
-function PitchCardSpot({ player, left, top, w, cardStyle, dim, anim, glow, isGk }) {
+function PitchCardSpot({ player, left, top, w, cardStyle, dim, anim, glow, isGk, teamColor, hero, entering }) {
   if (!player) return null;
+  const r = RARITY[player.rarity];
+  const enterAnim = entering ? 'cardEnter .55s ease both' : undefined;
   return (
     <div style={{
       position: 'absolute', left: left + '%', top: top + '%', transform: 'translate(-50%,-50%)',
-      opacity: dim ? 0.3 : 1, transition: 'opacity .5s, top .6s ease, left .6s ease',
-      animation: anim || 'none', zIndex: isGk ? 2 : glow ? 4 : 1,
-      filter: glow ? 'drop-shadow(0 0 12px rgba(201,146,46,0.75))' : isGk ? 'drop-shadow(0 0 6px rgba(58,138,255,0.5))' : 'none',
+      opacity: dim ? 0.28 : 1, transition: 'opacity .5s, top .6s ease, left .6s ease',
+      animation: anim || enterAnim || 'none', zIndex: hero ? 5 : isGk ? 2 : 1,
     }}>
-      <PlayerCard player={player} w={w} interactive={false} flippable={false} cardStyle={cardStyle} glowPulse={glow} />
+      <div style={{
+        borderRadius: hero ? 12 : 8, padding: hero ? 3 : 1,
+        background: hero ? `linear-gradient(145deg, ${r.ring}55, ${teamColor || C.acc}33)` : 'transparent',
+        border: `2px solid ${hero ? r.ring : (teamColor || 'rgba(255,255,255,0.15)')}`,
+        boxShadow: hero ? `0 0 18px ${r.glow}` : glow ? `0 0 14px ${teamColor || C.acc}66` : 'none',
+      }}>
+        <PlayerCard player={player} w={w} interactive={false} flippable={false} cardStyle={cardStyle} glowPulse={glow} />
+        {hero && (
+          <div style={{ textAlign: 'center', marginTop: 2 }}>
+            <span style={{ fontSize: 7, fontWeight: 900, fontFamily: 'Archivo,sans-serif', color: r.text, letterSpacing: 0.5 }}>{r.label.toUpperCase()}</span>
+          </div>
+        )}
+      </div>
     </div>
   );
 }
@@ -666,7 +744,7 @@ function placeGk(spots, push, team, side, w, opts = {}) {
 
 function MomentStatStrip({ m, micro, atkMgr, defMgr, compact }) {
   const showStats = micro === 'stats';
-  const showProb = geq(micro, 'prob') && micro !== 'outcome';
+  const showProb = (micro === 'clash' || micro === 'keeper') && micro !== 'outcome';
   if (!showStats && !showProb) return null;
 
   const statBar = (line, color, align) => {
@@ -725,8 +803,9 @@ function MomentStatStrip({ m, micro, atkMgr, defMgr, compact }) {
 }
 
 function MomentProgress({ ai, micro, total, compact }) {
-  const steps = ['intro', 'cards', 'stats', 'prob', 'suspense', 'outcome'];
-  const idx = steps.indexOf(micro === 'duel' || micro === 'keeper' ? 'suspense' : micro);
+  const steps = ['draw', 'lineup', 'stats', 'edge', 'clash', 'outcome'];
+  const mapMicro = micro === 'keeper' ? 'clash' : micro;
+  const idx = Math.max(0, steps.indexOf(mapMicro));
   return (
     <div style={{ marginBottom: compact ? 4 : 8, padding: '0 2px', flexShrink: 0 }}>
       <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: compact ? 4 : 6 }}>
@@ -747,17 +826,22 @@ function MomentProgress({ ai, micro, total, compact }) {
 }
 
 function MatchPitchScene({ m, micro, atkTeam, defTeam, atkMgr, defMgr, cardStyle }) {
-  const showCards = geq(micro, 'cards');
-  const clash = micro === 'duel' || micro === 'keeper';
-  const suspense = micro === 'suspense';
+  if (micro === 'draw') return null;
+
+  const showLineup = geq(micro, 'lineup');
+  const entering = micro === 'lineup';
+  const clash = micro === 'clash' || micro === 'keeper';
   const outcome = micro === 'outcome';
   const type = m.type;
   const ec = EVENT_COLORS[type] || C.acc;
-  const wSm = 28, wMd = 34, wLg = 46, wGk = 30;
+  const splitPitch = type === 'duel' || type === 'penalty' || m.penalty;
+  const wSm = 30, wMd = 40, wLg = 52, wGk = 32;
   const atkGlow = outcome && m.scored;
   const defGlow = outcome && !m.scored && (m.penalty || m.won);
   const clashAnim = clash ? 'duelClash .6s ease-in-out infinite' : undefined;
   const winAnim = outcome ? 'duelWin .7s ease' : undefined;
+  const atkColor = atkMgr.color;
+  const defColor = defMgr.color;
 
   const spots = [];
   const push = (player, left, top, w, opts = {}) => {
@@ -765,65 +849,89 @@ function MatchPitchScene({ m, micro, atkTeam, defTeam, atkMgr, defMgr, cardStyle
     spots.push({ key: player.id + '-' + left + '-' + top, player, left, top, w: w || wSm, ...opts });
   };
 
-  // Gardien défenseur TOUJOURS dans les buts (bas)
-  const defGk = () => placeGk(spots, push, defTeam, 'def', wGk, { dim: suspense && !clash });
-  const atkGk = () => placeGk(spots, push, atkTeam, 'atk', wGk, { dim: true });
+  const defGk = () => placeGk(spots, push, defTeam, 'def', wGk, { dim: !showLineup, teamColor: defColor });
+  const atkGk = () => placeGk(spots, push, atkTeam, 'atk', wGk, { dim: true, teamColor: atkColor });
 
-  if (!showCards) {
+  if (!showLineup) {
     defGk(); atkGk();
   } else if (type === 'possession') {
-    atkGk();
     const atkO = atkTeam.field.outfield;
-    atkO.forEach((p, i) => push(p, [28, 44, 56, 72][i], [38, 46, 46, 38][i], wSm));
-    defGk();
-    defTeam.field.outfield.forEach((p, i) => push(p, [32, 50, 68][i], [58, 66, 58][i], wSm, { dim: suspense }));
+    atkO.forEach((p, i) => push(p, [22, 36, 64, 78][i], [32, 40, 40, 32][i], wSm, { teamColor: atkColor, entering }));
+    push(atkTeam.field.gk, 50, 18, wGk, { isGk: true, teamColor: atkColor, dim: true, entering });
+    defTeam.field.outfield.forEach((p, i) => push(p, [24, 40, 60, 76][i], [58, 66, 66, 58][i], wSm, { teamColor: defColor, dim: micro === 'edge' && !clash, entering }));
+    push(defTeam.field.gk, 50, 82, wGk, { isGk: true, teamColor: defColor, entering });
   } else if (type === 'corner') {
     const taker = m.atkPlayer;
     const others = atkTeam.field.outfield.filter(p => p.id !== taker.id);
     atkGk();
-    push(taker, 90, 78, wMd, { anim: clashAnim, glow: atkGlow });
-    others.forEach((p, i) => push(p, [38, 50, 62][i] || 50, [66, 70, 66][i] || 68, wSm));
+    push(taker, 88, 76, wLg, { anim: clashAnim || winAnim, glow: atkGlow, hero: true, teamColor: atkColor, entering });
+    others.forEach((p, i) => push(p, [36, 50, 64][i] || 50, [64, 68, 64][i] || 66, wSm, { teamColor: atkColor, dim: true, entering }));
     defGk();
-    defTeam.field.outfield.forEach((p, i) => push(p, [34, 50, 66][i] || 50, [72, 68, 72][i] || 70, wSm, { dim: suspense && !clash }));
+    defTeam.field.outfield.forEach((p, i) => push(p, [34, 50, 66][i] || 50, [72, 68, 72][i] || 70, wSm, { teamColor: defColor, dim: !clash, entering }));
   } else if (type === 'contre') {
     atkGk();
-    push(m.atkPlayer, 50, 48, wMd, { anim: clashAnim, glow: atkGlow });
+    push(m.atkPlayer, 48, 44, wLg, { anim: clashAnim || winAnim, glow: atkGlow, hero: true, teamColor: atkColor, entering });
     const excluded = m.defExcluded;
     defGk();
     defTeam.field.outfield.forEach(p => {
-      if (excluded && p.id === excluded.id) push(p, 6, 50, wSm, { dim: true });
-      else push(p, p.id === m.defPlayer?.id ? 62 : 38, 62, wSm, {
-        anim: p.id === m.defPlayer?.id ? clashAnim : undefined,
+      if (excluded && p.id === excluded.id) push(p, 8, 52, wSm, { dim: true, teamColor: defColor, entering });
+      else push(p, p.id === m.defPlayer?.id ? 64 : 36, 60, wMd, {
+        anim: p.id === m.defPlayer?.id ? (clashAnim || winAnim) : undefined,
         glow: defGlow && p.id === m.defPlayer?.id,
+        hero: p.id === m.defPlayer?.id,
+        teamColor: defColor,
+        entering,
       });
     });
   } else if (type === 'duel') {
     atkGk(); defGk();
-    push(m.atkPlayer, 38, 50, wLg, { anim: clash ? clashAnim : winAnim, glow: atkGlow });
-    push(m.defPlayer, 62, 50, wLg, { anim: clash ? clashAnim : winAnim, glow: defGlow });
+    push(m.atkPlayer, 32, 50, wLg, { anim: clash ? clashAnim : winAnim, glow: atkGlow, hero: true, teamColor: atkColor, entering });
+    push(m.defPlayer, 68, 50, wLg, { anim: clash ? clashAnim : winAnim, glow: defGlow, hero: true, teamColor: defColor, entering });
   } else if (type === 'penalty' || m.penalty) {
     atkGk();
-    push(m.atkPlayer, PITCH.PEN_SPOT.x, PITCH.PEN_SPOT.y, wLg, { anim: clash || suspense ? clashAnim : winAnim, glow: atkGlow });
-    push(m.defPlayer || defTeam.field.gk, PITCH.GK_DEF.x, PITCH.GK_DEF.y, wGk, { isGk: true, anim: clash ? clashAnim : winAnim, glow: defGlow });
+    push(m.atkPlayer, PITCH.PEN_SPOT.x, PITCH.PEN_SPOT.y, wLg, { anim: clash || micro === 'edge' ? clashAnim : winAnim, glow: atkGlow, hero: true, teamColor: atkColor, entering });
+    push(m.defPlayer || defTeam.field.gk, PITCH.GK_DEF.x, PITCH.GK_DEF.y, wGk, { isGk: true, anim: clash ? clashAnim : winAnim, glow: defGlow, hero: true, teamColor: defColor, entering });
   }
 
   const banner = outcome
     ? (m.scored ? 'BUT !' : (m.penalty || m.won) ? 'ARRÊT !' : 'STOPPÉ')
     : null;
 
+  const heroNames = type === 'duel' || type === 'penalty' || m.penalty
+    ? `${m.atkPlayer?.name?.split(' ').pop()} vs ${m.defPlayer?.name?.split(' ').pop()}`
+    : type === 'corner' || type === 'contre'
+      ? m.atkPlayer?.name
+      : null;
+
   return (
     <div style={{ flex: 1, minHeight: 0, display: 'flex', flexDirection: 'column', overflow: 'hidden' }}>
       <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 6, marginBottom: 4, flexShrink: 0 }}>
         <GzIcon name={m.icon} size={14} color={ec} />
         <span style={{ fontFamily: 'Archivo,sans-serif', fontWeight: 900, fontSize: 11, letterSpacing: 0.5, color: ec }}>{m.label.toUpperCase()}</span>
+        {heroNames && showLineup && (
+          <span style={{ fontSize: 9, color: C.mut2, fontWeight: 700, marginLeft: 4 }}>· {heroNames}</span>
+        )}
       </div>
       <PitchFitBox highlight={ec}>
+        {splitPitch && showLineup && (
+          <>
+            <div style={{ position: 'absolute', left: 0, top: 0, bottom: 0, width: '50%', background: `${atkColor}0a`, borderRight: '1px solid rgba(255,255,255,0.12)', animation: 'pitchSplit .5s ease both', pointerEvents: 'none', zIndex: 0 }} />
+            <div style={{ position: 'absolute', right: 0, top: 0, bottom: 0, width: '50%', background: `${defColor}0a`, animation: 'pitchSplit .5s ease both', pointerEvents: 'none', zIndex: 0 }} />
+            <div style={{ position: 'absolute', left: '50%', top: '8%', bottom: '8%', width: 2, transform: 'translateX(-50%)', background: 'linear-gradient(180deg, transparent, rgba(255,255,255,0.35), transparent)', zIndex: 1, pointerEvents: 'none' }} />
+          </>
+        )}
+        {type === 'possession' && showLineup && (
+          <div style={{ position: 'absolute', top: 6, left: 0, right: 0, display: 'flex', justifyContent: 'space-between', padding: '0 8%', zIndex: 3, pointerEvents: 'none' }}>
+            <span style={{ fontSize: 8, fontWeight: 900, color: atkColor, fontFamily: 'Archivo,sans-serif', letterSpacing: 0.5 }}>{atkMgr.name.split(' ')[0].toUpperCase()}</span>
+            <span style={{ fontSize: 8, fontWeight: 900, color: defColor, fontFamily: 'Archivo,sans-serif', letterSpacing: 0.5 }}>{defMgr.name.split(' ')[0].toUpperCase()}</span>
+          </div>
+        )}
         {spots.map(s => (
           <PitchCardSpot key={s.key} player={s.player} left={s.left} top={s.top} w={s.w} cardStyle={cardStyle}
-            dim={s.dim} anim={s.anim} glow={s.glow} isGk={s.isGk} />
+            dim={s.dim} anim={s.anim} glow={s.glow} isGk={s.isGk} teamColor={s.teamColor} hero={s.hero} entering={s.entering} />
         ))}
         {outcome && banner && (
-          <div style={{ position: 'absolute', inset: 0, display: 'flex', alignItems: 'center', justifyContent: 'center', pointerEvents: 'none', zIndex: 8, background: 'rgba(0,0,0,0.4)' }}>
+          <div style={{ position: 'absolute', inset: 0, display: 'flex', alignItems: 'center', justifyContent: 'center', pointerEvents: 'none', zIndex: 8, background: 'rgba(0,0,0,0.42)' }}>
             <div style={{
               padding: '12px 24px', borderRadius: 14, animation: 'scorePop .55s',
               background: m.scored ? `linear-gradient(135deg, ${atkMgr.color}, ${C.acc})` : 'rgba(12,10,22,0.94)',
@@ -929,20 +1037,11 @@ function CommentaryBar({ text, compact }) {
 
 function MatchFlow({ midA, midB, replay, seed, bonusA: initialBonusA, onExit, isMobile }) {
   const [sim, setSim] = React.useState(() => replay ? simulateMatch(midA, midB, seed || 777, { bonusA: initialBonusA }) : null);
-  const [phase, setPhase] = React.useState(replay ? 'deal' : 'kickoff');
-  const [dealt, setDealt] = React.useState(0);
+  const [phase, setPhase] = React.useState(replay ? 'play' : 'kickoff');
   const [ai, setAi] = React.useState(0);
-  const [micro, setMicro] = React.useState('intro');
+  const [micro, setMicro] = React.useState('draw');
   const tok = React.useRef(0);
   const cardStyle = window.__cardStyle || 'blason';
-
-  React.useEffect(() => {
-    if (phase !== 'deal' || !sim) return;
-    setDealt(0); setAi(0);
-    let i = 0;
-    const t = setInterval(() => { i++; setDealt(i); if (i >= 6) { clearInterval(t); setTimeout(() => setPhase('play'), 650); } }, 430);
-    return () => clearInterval(t);
-  }, [phase, sim]);
 
   React.useEffect(() => {
     if (phase !== 'play' || !sim) return;
@@ -975,7 +1074,8 @@ function MatchFlow({ midA, midB, replay, seed, bonusA: initialBonusA, onExit, is
         onStart={(bonus) => {
           setSim(simulateMatch(midA, midB, seed, { bonusA: bonus }));
           setAi(0);
-          setPhase('deal');
+          setMicro('draw');
+          setPhase('play');
         }}
         onExit={onExit}
       />
@@ -984,12 +1084,13 @@ function MatchFlow({ midA, midB, replay, seed, bonusA: initialBonusA, onExit, is
 
   if (!sim) return null;
   const A = sim.A, B = sim.B;
+  const youSide = youSideOf(A, B);
 
   const resolvedUpTo = ai + (micro === 'outcome' ? 1 : 0);
   const sA = sim.moments.slice(0, resolvedUpTo).filter(x => x.scored && x.atk === 'A').length;
   const sB = sim.moments.slice(0, resolvedUpTo).filter(x => x.scored && x.atk === 'B').length;
 
-  if (phase === 'result') return <ResultScreen sim={sim} sA={sim.scoreA} sB={sim.scoreB} replay={replay} onExit={onExit} onReplay={() => { setAi(0); setPhase('deal'); }} />;
+  if (phase === 'result') return <ResultScreen sim={sim} sA={sim.scoreA} sB={sim.scoreB} replay={replay} onExit={onExit} onReplay={() => { setAi(0); setMicro('draw'); setPhase('play'); }} />;
 
   const m = phase === 'play' ? sim.moments[ai] : null;
   if (phase === 'play' && !m) {
@@ -1005,13 +1106,14 @@ function MatchFlow({ midA, midB, replay, seed, bonusA: initialBonusA, onExit, is
 
   const atkTeam = m ? (m.atk === 'A' ? A : B) : A;
   const defTeam = m ? (m.atk === 'A' ? B : A) : B;
-  const commentary = phase !== 'play' ? 'Tirage des moments décisifs…'
+  const commentary = micro === 'draw' ? 'Un moment fort est tiré au sort…'
     : micro === 'outcome' ? m.comments.result
+    : micro === 'edge' ? (m.edgeNarration || m.comments.mid)
     : micro === 'stats' ? `${m.aLabel} contre ${m.dLabel}`
-    : micro === 'prob' ? `${m.duelPct}% de chances de réussir cette action`
+    : micro === 'clash' ? `${m.duelPct}% de chances de réussir`
     : micro === 'keeper' ? `${m.keeperPct}% de chances de marquer`
-    : (micro === 'duel' || micro === 'suspense') ? m.comments.mid
-    : m.comments.reveal;
+    : micro === 'lineup' ? m.comments.reveal
+    : m.comments.mid;
 
   const minute = phase === 'play' ? `${12 + ai * 9}'` : "0'";
 
@@ -1027,53 +1129,27 @@ function MatchFlow({ midA, midB, replay, seed, bonusA: initialBonusA, onExit, is
         <PremiumScoreboard A={A} B={B} sA={sA} sB={sB} minute={minute} bump={bump} live={phase === 'play'} compact={phase === 'play'} />
       </div>
 
-      {phase === 'deal' ? (
-        <div style={{ flex: 1, display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', gap: 10, padding: '0 16px' }}>
-          <div style={{ textAlign: 'center' }}>
-            <div style={{ fontFamily: 'Archivo,sans-serif', fontWeight: 800, fontSize: 11, color: C.mut, letterSpacing: 2, textTransform: 'uppercase' }}>Tirage des moments</div>
-            <div style={{ fontFamily: 'Archivo,sans-serif', fontWeight: 900, fontSize: 20, marginTop: 2 }}>6 moments décisifs</div>
-          </div>
-          {dealt < 6 && <div style={{ animation: 'spin .7s linear infinite', lineHeight: 1 }}><HexBallIcon size={28} /></div>}
-          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: 8, width: '100%' }}>
-            {sim.moments.map((m2, i) => {
-              const open = i < dealt;
-              const mgr2 = m2.atk === 'A' ? A.mgr : B.mgr;
-              const ec = EVENT_COLORS[m2.type];
-              return (
-                <div key={i} style={{ perspective: 600, aspectRatio: '0.72' }}>
-                  <div style={{ width: '100%', height: '100%', transformStyle: 'preserve-3d', transform: `rotateY(${open ? 180 : 0}deg)`, transition: 'transform .5s cubic-bezier(.2,.8,.2,1)', position: 'relative' }}>
-                    <div style={{ position: 'absolute', inset: 0, backfaceVisibility: 'hidden', borderRadius: 10, background: 'linear-gradient(157deg,#221a38,#0d0a18)', border: '1px solid rgba(255,255,255,0.1)', display: 'flex', alignItems: 'center', justifyContent: 'center', overflow: 'hidden' }}>
-                      <div style={{ position: 'absolute', inset: 0, opacity: .22, background: 'repeating-linear-gradient(45deg,rgba(255,255,255,0.07) 0 6px,transparent 6px 12px)' }} />
-                      <span style={{ fontSize: 22, opacity: .4, position: 'relative' }}>?</span>
-                    </div>
-                    <div style={{ position: 'absolute', inset: 0, backfaceVisibility: 'hidden', transform: 'rotateY(180deg)', borderRadius: 10, overflow: 'hidden', background: `linear-gradient(155deg,rgba(18,14,30,0.96),rgba(8,6,18,0.98))`, border: `1.5px solid ${ec}55`, display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'space-around', padding: '8px 6px 6px' }}>
-                      <div style={{ position: 'absolute', inset: 0, background: `radial-gradient(circle at 50% 45%, ${ec}18, transparent 62%)` }} />
-                      <GzIcon name={m2.icon} size={26} color={ec} />
-                      <div style={{ textAlign: 'center', position: 'relative', zIndex: 2 }}>
-                        <div style={{ fontFamily: 'Archivo,sans-serif', fontWeight: 900, fontSize: 9, color: '#fff', letterSpacing: .6 }}>{m2.label.toUpperCase()}</div>
-                        <div style={{ fontSize: 8, color: mgr2.color, fontWeight: 800, marginTop: 1, display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 3 }}><Avatar mgr={mgr2} size={14} /> {mgr2.name}</div>
-                      </div>
-                    </div>
-                  </div>
-                </div>
-              );
-            })}
-          </div>
-          {dealt >= 6 && <div style={{ fontFamily: 'Archivo,sans-serif', fontWeight: 900, fontSize: 17, color: C.acc, animation: 'scorePop .5s', display: 'flex', alignItems: 'center', gap: 6 }}><GzIcon name="bolt" size={18} color={C.accL} /> Que le match commence !</div>}
-        </div>
-      ) : (
+      {phase === 'play' ? (
         <div style={{ flex: 1, minHeight: 0, display: 'flex', flexDirection: 'column', padding: '0 10px', gap: 4, overflow: 'hidden' }}>
+          <MomentTimeline moments={sim.moments} active={ai} resolvedUpTo={resolvedUpTo} />
           <MomentProgress ai={ai} micro={micro} total={6} compact />
-          <MatchPitchScene
-            m={m} micro={micro}
-            atkTeam={atkTeam} defTeam={defTeam}
-            atkMgr={atkMgr} defMgr={defMgr}
-            cardStyle={cardStyle}
-          />
-          <MomentStatStrip m={m} micro={micro} atkMgr={atkMgr} defMgr={defMgr} compact />
+          {micro === 'draw' ? (
+            <MomentDrawReveal m={m} atkMgr={atkMgr} youSide={youSide} />
+          ) : (
+            <>
+              <MatchPitchScene
+                m={m} micro={micro}
+                atkTeam={atkTeam} defTeam={defTeam}
+                atkMgr={atkMgr} defMgr={defMgr}
+                cardStyle={cardStyle}
+              />
+              <MomentStatStrip m={m} micro={micro} atkMgr={atkMgr} defMgr={defMgr} compact />
+              {micro === 'edge' && <AdvantagePanel m={m} atkMgr={atkMgr} defMgr={defMgr} compact />}
+            </>
+          )}
           <CommentaryBar text={commentary} compact />
         </div>
-      )}
+      ) : null}
     </div>
   );
 }
@@ -1088,7 +1164,7 @@ function Kickoff({ A, B, bonusA: initialBonus, onStart, onExit }) {
   const tabContent = {
     resume: (
       <Surface style={{ padding: 14, textAlign: 'center', borderColor: 'rgba(201,146,46,0.2)' }}>
-        <div style={{ color: C.mut, fontSize: 12.5, lineHeight: 1.45 }}>6 moments décisifs — possession, corners, contre-attaques, duels et penalties. Choisis ton bonus avant le coup d'envoi.</div>
+        <div style={{ color: C.mut, fontSize: 12.5, lineHeight: 1.45 }}>6 moments forts vécus un par un — possession, corners, contre-attaques, duels et penalties. Chaque tirage met tes cartes en scène. Choisis ton bonus avant le coup d'envoi.</div>
       </Surface>
     ),
     compo: <PitchFormation4 team={youTeam} cardStyle={cardStyle} />,
