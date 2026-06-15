@@ -188,7 +188,7 @@ function CardDetail({ player, cardStyle }) {
       <div style={{ display: 'flex', gap: 16, marginTop: 16, marginBottom: 4 }}>
         <div style={{ textAlign: 'center' }}><div style={{ fontFamily: 'Archivo,sans-serif', fontWeight: 900, fontSize: 22, color: C.acc }}>{player.ovr}</div><div style={{ color: C.mut2, fontSize: 10 }}>OVR</div></div>
         <div style={{ textAlign: 'center' }}><div style={{ fontFamily: 'Archivo,sans-serif', fontWeight: 900, fontSize: 22 }}>{POS[player.pos].label}</div><div style={{ color: C.mut2, fontSize: 10 }}>POSTE</div></div>
-        <div style={{ textAlign: 'center' }}><div style={{ fontFamily: 'Archivo,sans-serif', fontWeight: 900, fontSize: 22, color: RARITY[player.rarity].ring }}>{RARITY[player.rarity].short}</div><div style={{ color: C.mut2, fontSize: 10 }}>{RARITY[player.rarity].label}</div></div>
+        <div style={{ textAlign: 'center' }}><div style={{ fontFamily: 'Archivo,sans-serif', fontWeight: 900, fontSize: 22, color: cardVisualOf(player.rarity).ring }}>{cardVisualOf(player.rarity).short}</div><div style={{ color: C.mut2, fontSize: 10 }}>{cardVisualOf(player.rarity).label}</div></div>
       </div>
     </div>
   );

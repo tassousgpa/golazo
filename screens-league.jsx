@@ -76,7 +76,7 @@ function JerseyDot({ mgr, size = 36 }) {
   );
 }
 
-function LeagueHome({ onStartMatch, onSimulate, onCreateLeague, onOpenMarket, onOpenSquad, onOpenShop, cardStyle, plannedBonus, onPlanBonus }) {
+function LeagueHome({ onStartMatch, onOpenMarket, onOpenSquad, onOpenShop, cardStyle, plannedBonus, onPlanBonus, profile }) {
   const you = MANAGERS.find(m => m.you);
   const yourRow = STANDINGS.find(s => s.mid === you.id);
   const oppRow = STANDINGS.find(s => s.mid !== you.id);
@@ -109,10 +109,18 @@ function LeagueHome({ onStartMatch, onSimulate, onCreateLeague, onOpenMarket, on
       {/* ── Profil joueur ── */}
       <Surface glow="rgba(201,146,46,0.15)" style={{ padding: 14, marginBottom: 14, background: 'rgba(255,255,255,0.03)' }}>
         <div style={{ display: 'flex', gap: 12, alignItems: 'center', marginBottom: 12 }}>
-          <HexFrame size={52}><HexBallIcon size={30} /></HexFrame>
-          <div>
-            <div style={{ fontFamily: 'Archivo,sans-serif', fontWeight: 900, fontSize: 18, color: C.txt }}>Salut {you.name}</div>
-            <div style={{ color: C.mut, fontSize: 12.5, marginTop: 2 }}>Prêt pour la Coupe ?</div>
+          <HexFrame size={52}>
+            {you.country ? <Flag code={you.country} w={30} /> : <HexBallIcon size={30} />}
+          </HexFrame>
+          <div style={{ flex: 1, minWidth: 0 }}>
+            <div style={{ display: 'flex', alignItems: 'center', gap: 6, flexWrap: 'wrap' }}>
+              {you.country && <Flag code={you.country} w={16} />}
+              <div style={{ fontFamily: 'Archivo,sans-serif', fontWeight: 900, fontSize: 18, color: C.txt }}>Salut {you.name}</div>
+            </div>
+            <div style={{ color: C.mut, fontSize: 12.5, marginTop: 2 }}>
+              {you.teamName || profile?.teamName || 'Mon équipe'}
+              {you.leagueName || profile?.leagueName ? ` · ${you.leagueName || profile.leagueName}` : ''}
+            </div>
           </div>
         </div>
         <XpBar level={12} current={850} max={1200} />
@@ -130,7 +138,7 @@ function LeagueHome({ onStartMatch, onSimulate, onCreateLeague, onOpenMarket, on
       <Surface style={{ padding: 14, marginBottom: 16, background: 'rgba(255,255,255,0.03)' }}>
         <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 12 }}>
           <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
-            <div style={{ fontFamily: 'Archivo,sans-serif', fontWeight: 900, fontSize: 13, letterSpacing: 0.8, textTransform: 'uppercase' }}>Coupe entre potes</div>
+            <div style={{ fontFamily: 'Archivo,sans-serif', fontWeight: 900, fontSize: 13, letterSpacing: 0.8, textTransform: 'uppercase' }}>{profile?.leagueName || you.leagueName || 'Coupe entre potes'}</div>
             <button style={{ background: 'none', border: 'none', cursor: 'pointer', padding: 0, display: 'flex' }}><GzIcon name="settings" size={15} color={C.mut2} /></button>
           </div>
           <Chip color={C.acc} solid style={{ fontSize: 10 }}>{MANAGERS.length} / {MANAGERS.length} joueurs</Chip>
@@ -224,13 +232,6 @@ function LeagueHome({ onStartMatch, onSimulate, onCreateLeague, onOpenMarket, on
         <Btn size="sm" kind="ghost" style={{ flexShrink: 0, position: 'relative' }}>Découvrir</Btn>
       </Surface>
 
-      {/* ── Raccourcis secondaires ── */}
-      <div style={{ display: 'flex', gap: 10, marginTop: 4 }}>
-        <Btn kind="dark" size="sm" style={{ flex: 1 }} onClick={onSimulate}>Simulation rapide</Btn>
-        <Btn kind="dark" size="sm" style={{ flex: 1 }} onClick={onCreateLeague}>Créer ma ligue</Btn>
-      </div>
-
-      {/* ── Sheet classement ── */}
       <Sheet open={showStandings} onClose={() => setShowStandings(false)} title="Classement">
         <Surface style={{ overflow: 'hidden' }}>
           {STANDINGS.map((row, i) => {
@@ -262,7 +263,7 @@ function LeagueHome({ onStartMatch, onSimulate, onCreateLeague, onOpenMarket, on
   );
 }
 
-// ─── Create league flow ───
+// ─── Create league flow (legacy — used by setup) ───
 function CreateLeague({ onBack, onLaunchMarket }) {
   const [name, setName] = React.useState('Coupe entre potes');
   const [hours, setHours] = React.useState(6);

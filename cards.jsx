@@ -51,7 +51,7 @@ function StatBar({ k, val, boost = 0 }) {
 }
 
 // ─── Gold card frame SVG overlay ───
-function CardFrame({ w, h, S, color }) {
+function CardFrame({ w, h, S, color, opacity = 1 }) {
   const cx = w / 2;
   // 5-point star
   const starPts = Array.from({ length: 10 }, (_, i) => {
@@ -62,15 +62,15 @@ function CardFrame({ w, h, S, color }) {
   return (
     <svg width={w} height={h} viewBox={`0 0 ${w} ${h}`} style={{ position: 'absolute', inset: 0, pointerEvents: 'none', zIndex: 3 }}>
       {/* outer border */}
-      <rect x={1.5 * S} y={1.5 * S} width={w - 3 * S} height={h - 3 * S} rx={16 * S} ry={16 * S} fill="none" stroke={color} strokeWidth={1.5 * S} opacity="0.72" />
+      <rect x={1.5 * S} y={1.5 * S} width={w - 3 * S} height={h - 3 * S} rx={16 * S} ry={16 * S} fill="none" stroke={color} strokeWidth={1.5 * S} opacity={(0.72 * opacity).toFixed(2)} />
       {/* inner subtle border */}
-      <rect x={3.5 * S} y={3.5 * S} width={w - 7 * S} height={h - 7 * S} rx={14 * S} ry={14 * S} fill="none" stroke={color} strokeWidth={0.5 * S} opacity="0.25" />
+      <rect x={3.5 * S} y={3.5 * S} width={w - 7 * S} height={h - 7 * S} rx={14 * S} ry={14 * S} fill="none" stroke={color} strokeWidth={0.5 * S} opacity={(0.25 * opacity).toFixed(2)} />
       {/* top-left corner bracket */}
-      <path d={`M ${8 * S} ${16 * S} L ${8 * S} ${7 * S} L ${18 * S} ${7 * S}`} fill="none" stroke={color} strokeWidth={2 * S} opacity="0.85" strokeLinecap="round" strokeLinejoin="round" />
+      <path d={`M ${8 * S} ${16 * S} L ${8 * S} ${7 * S} L ${18 * S} ${7 * S}`} fill="none" stroke={color} strokeWidth={2 * S} opacity={(0.85 * opacity).toFixed(2)} strokeLinecap="round" strokeLinejoin="round" />
       {/* top-right corner bracket */}
-      <path d={`M ${w - 8 * S} ${16 * S} L ${w - 8 * S} ${7 * S} L ${w - 18 * S} ${7 * S}`} fill="none" stroke={color} strokeWidth={2 * S} opacity="0.85" strokeLinecap="round" strokeLinejoin="round" />
+      <path d={`M ${w - 8 * S} ${16 * S} L ${w - 8 * S} ${7 * S} L ${w - 18 * S} ${7 * S}`} fill="none" stroke={color} strokeWidth={2 * S} opacity={(0.85 * opacity).toFixed(2)} strokeLinecap="round" strokeLinejoin="round" />
       {/* star at top center */}
-      <polygon points={starPts} fill={color} opacity="0.82" />
+      {opacity > 0.5 && <polygon points={starPts} fill={color} opacity={(0.82 * opacity).toFixed(2)} />}
       {/* bottom small emblem */}
       <line x1={cx - 10 * S} y1={h - 9 * S} x2={cx + 10 * S} y2={h - 9 * S} stroke={color} strokeWidth={S} opacity="0.4" />
       <circle cx={cx} cy={h - 9 * S} r={2.5 * S} fill={color} opacity="0.55" />
@@ -81,7 +81,7 @@ function CardFrame({ w, h, S, color }) {
 // ─── Front of card (reference-accurate layout) ───
 function FrontBlason({ player, S, r, pos }) {
   const pg = POS_GLOW[player.pos];
-  const gi = RAR_INTENSITY[player.rarity];
+  const gi = r.intensity || 0.5;
   const glowAlpha = (0.52 * gi).toFixed(2);
   const boostK = player.boost ? player.boost.stat : null;
 
@@ -106,10 +106,12 @@ function FrontBlason({ player, S, r, pos }) {
         <div style={{ marginTop: 5 * S }}><Flag code={player.country} w={22 * S} /></div>
       </div>
 
-      {/* rarity label — top-right */}
-      <div style={{ position: 'absolute', top: 10 * S, right: 10 * S, zIndex: 4 }}>
-        <div style={{ padding: `${2 * S}px ${6 * S}px`, borderRadius: 999, background: `${r.ring}20`, border: `1px solid ${r.ring}55`, fontFamily: 'Archivo,sans-serif', fontWeight: 900, fontSize: 8 * S, letterSpacing: 0.8, color: r.ring }}>{r.label.toUpperCase()}</div>
-      </div>
+      {/* rarity label — top-right (hidden for commun) */}
+      {r.intensity > 0.5 && (
+        <div style={{ position: 'absolute', top: 10 * S, right: 10 * S, zIndex: 4 }}>
+          <div style={{ padding: `${2 * S}px ${6 * S}px`, borderRadius: 999, background: `${r.ring}20`, border: `1px solid ${r.ring}55`, fontFamily: 'Archivo,sans-serif', fontWeight: 900, fontSize: 8 * S, letterSpacing: 0.8, color: r.ring }}>{r.label.toUpperCase()}</div>
+        </div>
+      )}
 
       {/* silhouette */}
       <div style={{ position: 'absolute', left: 0, right: 0, bottom: statRows ? 50 * S : 30 * S, display: 'flex', flexDirection: 'column', alignItems: 'center', pointerEvents: 'none', zIndex: 2 }}>
@@ -122,9 +124,12 @@ function FrontBlason({ player, S, r, pos }) {
         <div style={{ position: 'absolute', top: 8 * S, right: 8 * S, zIndex: 6 }}><BoostBadge amount={player.boost.amount} S={S} /></div>
       )}
 
-      {/* name */}
+      {/* name + flag */}
       <div style={{ position: 'absolute', left: 0, right: 0, bottom: statRows ? 28 * S : 10 * S, zIndex: 4, textAlign: 'center', padding: `0 ${8 * S}px` }}>
-        <div style={{ fontFamily: 'Archivo,sans-serif', fontWeight: 800, fontSize: 11.5 * S, color: '#fff', textShadow: '0 1px 4px rgba(0,0,0,0.9)', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{player.name}</div>
+        <div style={{ display: 'inline-flex', alignItems: 'center', justifyContent: 'center', gap: 4 * S, maxWidth: '100%' }}>
+          <Flag code={player.country} w={14 * S} r={2} />
+          <div style={{ fontFamily: 'Archivo,sans-serif', fontWeight: 800, fontSize: 11.5 * S, color: '#fff', textShadow: '0 1px 4px rgba(0,0,0,0.9)', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{player.name}</div>
+        </div>
       </div>
 
       {/* 3×2 stats grid */}
@@ -229,10 +234,11 @@ function PlayerCard({ player, w = 200, interactive = true, flippable = true, fli
   const flipped = flippedProp !== undefined ? flippedProp : flip;
   const ref = React.useRef(null);
   const [tilt, setTilt] = React.useState({ rx: 0, ry: 0, mx: 50, my: 50, active: false });
-  const r = RARITY[player.rarity]; const pos = POS[player.pos];
-  const h = w * 1.4; const S = w / 200; const ringW = Math.max(1.5, 2.5 * S);
+  const r = cardVisualOf(player.rarity); const pos = POS[player.pos];
+  const h = w * 1.4; const S = w / 200; const ringW = Math.max(1, 2.5 * S * (r.frame || 1));
   const pg = POS_GLOW[player.pos];
   const cardBg = `linear-gradient(165deg, ${pg.base[0]}, ${pg.base[1]} 80%)`;
+  const isLegend = visualTierOf(player.rarity) === 'legendaire';
 
   const move = (e) => {
     if (!interactive || !ref.current) return;
@@ -248,11 +254,12 @@ function PlayerCard({ player, w = 200, interactive = true, flippable = true, fli
     <div ref={ref} onPointerMove={move} onPointerLeave={leave} onClick={doFlip} style={{ width: w, height: h, perspective: 900, cursor: 'pointer', flexShrink: 0, filter: dim ? 'grayscale(0.65) brightness(0.55)' : 'none', transition: 'filter .25s', ...style }}>
       <div style={{ position: 'relative', width: '100%', height: '100%', transformStyle: 'preserve-3d', transform: `rotateX(${tilt.rx}deg) rotateY(${(flipped ? 180 : 0) + tilt.ry}deg) scale(${tilt.active ? 1.03 : 1})`, transition: tilt.active ? 'transform .08s linear' : 'transform .5s cubic-bezier(.2,.8,.2,1)' }}>
         {/* FRONT */}
-        <div style={{ position: 'absolute', inset: 0, backfaceVisibility: 'hidden', borderRadius: 18 * S, overflow: 'hidden', background: cardBg, boxShadow: `0 0 0 ${ringW}px ${r.ring}${selected ? '' : '66'}, 0 ${10 * S}px ${28 * S}px rgba(0,0,0,0.6), 0 0 ${selected || glowPulse ? 32 * S : 0}px ${r.glow}`, ...(glowPulse ? { animation: 'cardPulse 1.3s ease-in-out infinite' } : {}) }}>
-          <CardFrame w={w} h={h} S={S} color={r.ring} />
+        <div style={{ position: 'absolute', inset: 0, backfaceVisibility: 'hidden', borderRadius: 18 * S, overflow: 'hidden', background: cardBg, boxShadow: `0 0 0 ${ringW}px ${r.ring}${selected ? '' : (visualTierOf(player.rarity) === 'commun' ? '44' : '66')}, 0 ${10 * S}px ${28 * S}px rgba(0,0,0,0.6)${r.glow !== 'transparent' ? `, 0 0 ${selected || glowPulse || isLegend ? 36 * S : 18 * S}px ${r.glow}` : ''}`, ...(glowPulse || isLegend ? { animation: isLegend ? 'cardPulse 1.8s ease-in-out infinite' : 'cardPulse 1.3s ease-in-out infinite' } : {}) }}>
+          <CardFrame w={w} h={h} S={S} color={r.ring} opacity={r.frame || 1} />
           {cardStyle === 'maillot' ? <FrontMaillot player={player} S={S} r={r} pos={pos} /> : cardStyle === 'minimal' ? <FrontMinimal player={player} S={S} r={r} pos={pos} /> : <FrontBlason player={player} S={S} r={r} pos={pos} />}
           {/* holographic sheen */}
-          {r.holo > 0 && <div style={{ position: 'absolute', inset: 0, borderRadius: 18 * S, pointerEvents: 'none', mixBlendMode: 'color-dodge', opacity: (tilt.active ? 0.5 : 0.22) * r.holo, backgroundImage: 'repeating-linear-gradient(115deg,#e8c276 0%,#c9922e 18%,#fff 36%,#4a8aff 54%,#c9922e 72%,#e8c276 90%)', backgroundSize: '260% 260%', backgroundPosition: `${tilt.mx}% ${tilt.my}%`, transition: tilt.active ? 'none' : 'opacity .4s' }} />}
+          {r.holo > 0 && <div style={{ position: 'absolute', inset: 0, borderRadius: 18 * S, pointerEvents: 'none', mixBlendMode: 'color-dodge', opacity: (tilt.active ? 0.55 : 0.22) * r.holo, backgroundImage: 'repeating-linear-gradient(115deg,#e8c276 0%,#c9922e 18%,#fff 36%,#4a8aff 54%,#c9922e 72%,#e8c276 90%)', backgroundSize: '260% 260%', backgroundPosition: `${tilt.mx}% ${tilt.my}%`, transition: tilt.active ? 'none' : 'opacity .4s' }} />}
+          {isLegend && <div style={{ position: 'absolute', inset: -2, borderRadius: 20 * S, pointerEvents: 'none', background: 'conic-gradient(from 0deg, transparent, rgba(232,194,118,0.35), transparent, rgba(74,138,255,0.2), transparent)', animation: 'spin 4s linear infinite', opacity: 0.7 }} />}
           {/* glare */}
           <div style={{ position: 'absolute', inset: 0, borderRadius: 18 * S, pointerEvents: 'none', background: `radial-gradient(circle at ${tilt.mx}% ${tilt.my}%, rgba(255,255,255,${tilt.active ? 0.32 : 0.08}), transparent 42%)`, mixBlendMode: 'soft-light' }} />
         </div>
@@ -280,13 +287,13 @@ function PlayerCard({ player, w = 200, interactive = true, flippable = true, fli
 
 // ─── Mini card ───
 function MiniCard({ player, w = 60, onClick, selected, cardStyle = (typeof window !== 'undefined' && window.__cardStyle) || 'blason', label }) {
-  const r = RARITY[player.rarity]; const pos = POS[player.pos]; const S = w / 200;
+  const r = cardVisualOf(player.rarity); const pos = POS[player.pos]; const S = w / 200;
   const h = w * 1.4; const pg = POS_GLOW[player.pos];
   return (
     <div onClick={onClick} style={{ width: w, height: h, borderRadius: 11 * S, position: 'relative', overflow: 'hidden', cursor: onClick ? 'pointer' : 'default', flexShrink: 0, background: `linear-gradient(165deg, ${pg.base[0]}, ${pg.base[1]} 80%)`, boxShadow: `0 0 0 ${selected ? 2.5 : 1.5}px ${selected ? C.acc : r.ring + '66'}, 0 4px 14px rgba(0,0,0,0.5)` }}>
       <div style={{ position: 'absolute', inset: 0, background: `radial-gradient(ellipse 80% 55% at 50% 28%, rgba(${pg.gr},0.45), transparent 60%)` }} />
       {/* CardFrame mini */}
-      <CardFrame w={w} h={h} S={S} color={r.ring} />
+      <CardFrame w={w} h={h} S={S} color={r.ring} opacity={r.frame || 1} />
       <div style={{ position: 'absolute', top: 5 * S, left: 6 * S, fontFamily: 'Archivo,sans-serif', fontWeight: 900, fontSize: 18 * S, color: '#fff', lineHeight: 0.9, textShadow: '0 1px 3px rgba(0,0,0,0.6)', zIndex: 4 }}>
         {player.ovr}
         <div style={{ fontSize: 8 * S, color: pos.color, letterSpacing: 0.5 }}>{pos.label}</div>

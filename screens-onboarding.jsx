@@ -24,7 +24,7 @@ const FEATURE_SLIDES = [
   { title: 'MATCHS EN DIRECT', body: '6 actions clés, suspense à chaque tirage, résultat en 60s.', icon: 'trophy', player: null, playerName: 'Kylian Mbappé' },
 ];
 
-function Onboarding({ onAuth }) {
+function Onboarding({ onAuth, onDemo }) {
   const [authMode, setAuthMode] = React.useState(null);
   const [slideIdx, setSlideIdx] = React.useState(0);
 
@@ -56,16 +56,14 @@ function Onboarding({ onAuth }) {
           La Coupe du Monde, <span style={{ color: C.accL, fontWeight: 700 }}>entre potes.</span>
         </div>
 
-        {/* Concept card with fanned player cards */}
-        <div style={{ position: 'relative', marginBottom: 26 }}>
-          {/* Main concept card */}
+        {/* Concept card */}
+        <div style={{ marginBottom: 20 }}>
           <div style={{ background: 'rgba(255,255,255,0.04)', borderRadius: 22, border: `1px solid rgba(201,146,46,0.22)`, padding: '18px 18px 20px', boxShadow: '0 20px 50px rgba(0,0,0,0.45)' }}>
-            {/* Concept items left side (leave right side for cards) */}
-            <div style={{ paddingRight: 100, display: 'flex', flexDirection: 'column', gap: 13 }}>
+            <div style={{ display: 'flex', flexDirection: 'column', gap: 13 }}>
               {CONCEPT_ITEMS.map(item => (
                 <div key={item.icon} style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
                   <IconBadge name={item.icon} size={38} iconSize={20} />
-                  <div>
+                  <div style={{ flex: 1, minWidth: 0 }}>
                     <div style={{ fontFamily: 'Archivo,sans-serif', fontWeight: 900, fontSize: 15, color: '#fff', letterSpacing: 0.5 }}>{item.title}</div>
                     <div style={{ color: C.mut, fontSize: 12.5, marginTop: 1 }}>{item.sub}</div>
                   </div>
@@ -74,26 +72,24 @@ function Onboarding({ onAuth }) {
             </div>
           </div>
 
-          {/* Fanned player cards — right side, overlapping concept card */}
-          <div style={{ position: 'absolute', right: -8, top: '50%', transform: 'translateY(-52%)', display: 'flex', alignItems: 'center' }}>
-            {/* Back card (left, smaller, rotated) */}
-            <div style={{ position: 'absolute', right: 116, top: '50%', transform: 'translateY(-50%) rotate(-9deg)', zIndex: 1, transformOrigin: 'bottom center' }}>
-              <PlayerCard player={featPlayers[0]} w={82} interactive={false} flippable={false} />
+          {/* Fanned cards — below concept, no overlap */}
+          <div style={{ position: 'relative', height: 148, marginTop: 14, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+            <div style={{ position: 'absolute', left: '18%', transform: 'rotate(-11deg)', zIndex: 1 }}>
+              <PlayerCard player={featPlayers[0]} w={78} interactive={false} flippable={false} />
             </div>
-            {/* Hero card (center, biggest, upright) */}
             <div style={{ position: 'relative', zIndex: 3 }}>
-              <PlayerCard player={featPlayers[2]} w={100} interactive={false} flippable={false} />
+              <PlayerCard player={featPlayers[2]} w={96} interactive={false} flippable={false} />
             </div>
-            {/* Back card (right, rotated) */}
-            <div style={{ position: 'absolute', right: -56, top: '50%', transform: 'translateY(-48%) rotate(10deg)', zIndex: 1, transformOrigin: 'bottom center' }}>
-              <PlayerCard player={featPlayers[1]} w={80} interactive={false} flippable={false} />
+            <div style={{ position: 'absolute', right: '18%', transform: 'rotate(11deg)', zIndex: 1 }}>
+              <PlayerCard player={featPlayers[1]} w={76} interactive={false} flippable={false} />
             </div>
           </div>
         </div>
 
         {/* CTAs */}
         <Btn full size="lg" onClick={() => setAuthMode('signup')} style={{ marginBottom: 12, letterSpacing: 2 }}>CRÉER UN COMPTE</Btn>
-        <Btn full size="lg" kind="ghost" onClick={() => setAuthMode('login')} style={{ letterSpacing: 2 }}>SE CONNECTER</Btn>
+        <Btn full size="lg" kind="ghost" onClick={() => setAuthMode('login')} style={{ marginBottom: 12, letterSpacing: 2 }}>SE CONNECTER</Btn>
+        <Btn full size="lg" kind="dark" onClick={onDemo} style={{ letterSpacing: 1.5 }}>▶ VOIR LA DÉMO</Btn>
 
         {/* Social proof */}
         <div style={{ display: 'flex', alignItems: 'center', gap: 10, margin: '18px 0 16px' }}>
@@ -136,20 +132,22 @@ function Onboarding({ onAuth }) {
 }
 
 function AuthForm({ mode, onAuth }) {
-  const Field = ({ ph, type = 'text' }) => (
-    <input placeholder={ph} type={type} style={{ width: '100%', boxSizing: 'border-box', padding: '15px 16px', borderRadius: 14, marginBottom: 11, background: 'rgba(255,255,255,0.05)', border: `1px solid ${C.line}`, color: C.txt, fontSize: 15, fontFamily: 'Hanken Grotesk,sans-serif', outline: 'none' }} />
+  const [pseudo, setPseudo] = React.useState('');
+  const Field = ({ ph, type = 'text', value, onChange }) => (
+    <input placeholder={ph} type={type} value={value} onChange={onChange} style={{ width: '100%', boxSizing: 'border-box', padding: '15px 16px', borderRadius: 14, marginBottom: 11, background: 'rgba(255,255,255,0.05)', border: `1px solid ${C.line}`, color: C.txt, fontSize: 15, fontFamily: 'Hanken Grotesk,sans-serif', outline: 'none' }} />
   );
+  const submit = () => onAuth(mode === 'signup' ? { pseudo: pseudo.trim() } : {});
   return (
     <div>
-      {mode === 'signup' && <Field ph="Ton pseudo" />}
+      {mode === 'signup' && <Field ph="Ton pseudo" value={pseudo} onChange={e => setPseudo(e.target.value)} />}
       <Field ph="Email" type="email" />
       <Field ph="Mot de passe" type="password" />
       <div style={{ height: 6 }} />
-      <Btn full size="lg" onClick={onAuth}>{mode === 'signup' ? "C'est parti" : 'Se connecter'}</Btn>
+      <Btn full size="lg" onClick={submit}>{mode === 'signup' ? "C'est parti" : 'Se connecter'}</Btn>
       <div style={{ display: 'flex', alignItems: 'center', gap: 12, margin: '18px 0' }}>
         <div style={{ flex: 1, height: 1, background: C.line }} /><span style={{ color: C.mut2, fontSize: 12 }}>ou</span><div style={{ flex: 1, height: 1, background: C.line }} />
       </div>
-      <Btn full kind="dark" onClick={onAuth}> Continuer avec Apple</Btn>
+      <Btn full kind="dark" onClick={submit}> Continuer avec Apple</Btn>
     </div>
   );
 }

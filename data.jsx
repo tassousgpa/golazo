@@ -41,6 +41,46 @@ const POS_GLOW = {
 const RAR_INTENSITY = { commun: 0.55, rare: 0.75, epique: 0.95, legendaire: 1.18 };
 const RARITY_ORDER = ['commun', 'rare', 'epique', 'legendaire'];
 
+function visualTierOf(rarity) {
+  if (rarity === 'legendaire') return 'legendaire';
+  if (rarity === 'rare' || rarity === 'epique') return 'rare';
+  return 'commun';
+}
+
+const CARD_VISUAL = {
+  commun:     { label: 'Commun',     short: 'C', ring: '#5a5a68', glow: 'transparent',              text: '#a8a8b8', holo: 0,    intensity: 0.35, frame: 0.35 },
+  rare:       { label: 'Rare',       short: 'R', ring: '#9eb0d8', glow: 'rgba(158,176,216,0.38)',   text: '#d0daf0', holo: 0.22, intensity: 0.68, frame: 0.65 },
+  legendaire: { label: 'Légendaire', short: 'L', ring: '#e8c276', glow: 'rgba(232,194,118,0.82)',   text: '#fff4d0', holo: 1,    intensity: 1.2,  frame: 1, shimmer: true },
+};
+
+function cardVisualOf(rarity) {
+  return CARD_VISUAL[visualTierOf(rarity)];
+}
+
+const PROFILE_KEY = 'golazo_profile';
+
+function loadProfile() {
+  try {
+    const raw = localStorage.getItem(PROFILE_KEY);
+    return raw ? JSON.parse(raw) : null;
+  } catch { return null; }
+}
+
+function saveProfile(profile) {
+  localStorage.setItem(PROFILE_KEY, JSON.stringify(profile));
+  applyProfile(profile);
+}
+
+function applyProfile(profile) {
+  if (!profile) return;
+  const you = MANAGERS.find(m => m.you);
+  if (!you) return;
+  if (profile.pseudo) you.name = profile.pseudo;
+  if (profile.teamName) you.teamName = profile.teamName;
+  if (profile.country) you.country = profile.country;
+  if (profile.leagueName) you.leagueName = profile.leagueName;
+}
+
 const POS = {
   GK:  { label: 'GAR', full: 'Gardien',     color: '#ffd24a' },
   DEF: { label: 'DÉF', full: 'Défenseur',   color: '#4ad6ff' },
@@ -170,10 +210,13 @@ const AUCTION_POOL_NAMES = [
 ];
 const AUCTION_POOL_IDS = AUCTION_POOL_NAMES.map(playerByName).filter(Boolean).map(p => p.id);
 
+applyProfile(loadProfile());
+
 Object.assign(window, {
-  COUNTRIES, RARITY, RARITY_ORDER, POS, STAT_KEYS, STAT_LABEL, STAT_ABBR,
+  COUNTRIES, RARITY, RARITY_ORDER, CARD_VISUAL, POS, STAT_KEYS, STAT_LABEL, STAT_ABBR,
   PLAYERS, byId, MANAGERS, SQUADS, ROLES, STANDINGS, LIVE_BOOSTS,
-  MATCH_BONUSES, MATCH_BONUS_STATS, PLANNED_BONUS_KEY,
+  MATCH_BONUSES, MATCH_BONUS_STATS, PLANNED_BONUS_KEY, PROFILE_KEY,
   COUNTRY_LIST, filterPlayers, normSearch, AUCTION_POOL_IDS, playerByName,
   overall, fieldOf, withBoost, loadPlannedBonus, savePlannedBonus, bonusLabel,
+  visualTierOf, cardVisualOf, loadProfile, saveProfile, applyProfile,
 });

@@ -72,11 +72,12 @@ function useMarketFilters() {
   return { filters, setFilters, filtered };
 }
 
-function MarketScreen({ onDone, cardStyle, onOpenPack }) {
+function MarketScreen({ onDone, cardStyle, onOpenPack, firstTime }) {
   const [phase, setPhase] = React.useState('intro');
   const [marketTab, setMarketTab] = React.useState('encheres');
   const [bids, setBids] = React.useState({});
   const [bidFor, setBidFor] = React.useState(null);
+  const [detail, setDetail] = React.useState(null);
   const [results, setResults] = React.useState(null);
   const [revealN, setRevealN] = React.useState(0);
   const [won, setWon] = React.useState([]);
@@ -181,7 +182,7 @@ function MarketScreen({ onDone, cardStyle, onOpenPack }) {
 
       {marketTab === 'encheres' && (
         <div>
-          <div style={{ color: C.mut, fontSize: 12, marginBottom: 12 }}>Touche un joueur pour miser. Filtre par nom, équipe, poste ou note.</div>
+          <div style={{ color: C.mut, fontSize: 12, marginBottom: 12 }}>Touche une carte pour la vue 3D · bouton pour miser.</div>
           {auctionCandidates.length === 0 ? (
             <Surface style={{ padding: 16, textAlign: 'center' }}><div style={{ color: C.mut }}>Aucun joueur pour ces filtres.</div></Surface>
           ) : (
@@ -192,12 +193,15 @@ function MarketScreen({ onDone, cardStyle, onOpenPack }) {
                 return (
                   <Surface key={p.id} style={{ padding: 10, position: 'relative', borderColor: inPack ? 'rgba(50,200,112,0.5)' : mine ? 'rgba(201,146,46,0.5)' : C.line, background: inPack ? 'rgba(50,200,112,0.06)' : C.surf }}>
                     {inPack && <div style={{ position: 'absolute', top: 8, left: 8, zIndex: 5 }}><Chip color={C.lime} solid>✓ Pack</Chip></div>}
-                    <div style={{ display: 'flex', justifyContent: 'center' }}>
+                    <div style={{ display: 'flex', justifyContent: 'center', cursor: 'pointer' }} onClick={() => !inPack && setDetail(p)}>
                       <PlayerCard player={p} w={108} interactive={false} flippable={false} cardStyle={cardStyle} dim={inPack} />
                     </div>
                     <div style={{ textAlign: 'center', marginTop: 4 }}>
-                      <div style={{ fontFamily: 'Archivo,sans-serif', fontWeight: 800, fontSize: 11, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{p.name}</div>
-                      <div style={{ fontSize: 9.5, color: C.mut2, fontWeight: 700 }}>{COUNTRIES[p.country]?.name} · OVR {p.ovr}</div>
+                      <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 4 }}>
+                        <Flag code={p.country} w={12} />
+                        <div style={{ fontFamily: 'Archivo,sans-serif', fontWeight: 800, fontSize: 11, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{p.name}</div>
+                      </div>
+                      <div style={{ fontSize: 9.5, color: cardVisualOf(p.rarity).ring, fontWeight: 800, marginTop: 2 }}>{cardVisualOf(p.rarity).label} · OVR {p.ovr}</div>
                     </div>
                     <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginTop: 6 }}>
                       <div style={{ color: C.mut, fontSize: 11 }}>valeur</div><CreditPill value={p.price} size="sm" />
@@ -223,6 +227,18 @@ function MarketScreen({ onDone, cardStyle, onOpenPack }) {
 
       <Sheet open={!!bidFor} onClose={() => setBidFor(null)} title={bidFor ? `Miser sur ${bidFor.name}` : ''}>
         {bidFor && <BidPad player={bidFor} max={credits + (bids[bidFor.id] || 0)} current={bids[bidFor.id] || 0} onConfirm={placeBid} cardStyle={cardStyle} />}
+      </Sheet>
+
+      <Sheet open={!!detail} onClose={() => setDetail(null)}>
+        {detail && typeof CardDetail !== 'undefined' && (
+          <React.Fragment>
+            <CardDetail player={detail} cardStyle={cardStyle} />
+            <div style={{ height: 12 }} />
+            {!won.includes(detail.id) && (
+              <Btn full onClick={() => { setBidFor(detail); setDetail(null); }}>Miser sur ce joueur</Btn>
+            )}
+          </React.Fragment>
+        )}
       </Sheet>
 
       {toast && <div style={{ position: 'absolute', bottom: 96, left: 14, right: 14, zIndex: 300, background: C.bg2, border: '1px solid ' + C.line, borderRadius: 14, padding: '13px 16px', textAlign: 'center', fontFamily: 'Archivo,sans-serif', fontWeight: 800, fontSize: 13, boxShadow: '0 10px 30px rgba(0,0,0,0.5)', animation: 'sheetUp .3s' }}>{toast}</div>}
@@ -273,7 +289,7 @@ function MarketScreen({ onDone, cardStyle, onOpenPack }) {
     <div>
       <TopBar title="Ton équipe est prête" sub="Marché terminé" />
       <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr 1fr', gap: 10 }}>
-        {won.map(id => <div key={id} style={{ display: 'flex', justifyContent: 'center' }}><PlayerCard player={byId(id)} w={98} interactive={false} flippable={false} cardStyle={cardStyle} /></div>)}
+        {won.map(id => <div key={id} style={{ display: 'flex', justifyContent: 'center' }}><PlayerCard player={byId(id)} w={98} interactive flippable cardStyle={cardStyle} /></div>)}
       </div>
       <div style={{ height: 20 }} />
       <Btn full size="lg" onClick={onDone}>Composer mon équipe →</Btn>
@@ -286,7 +302,7 @@ function BidPad({ player, max, current, onConfirm, cardStyle }) {
   return (
     <div>
       <div style={{ display: 'flex', gap: 14, alignItems: 'center', marginBottom: 16 }}>
-        <PlayerCard player={player} w={96} interactive={false} flippable={false} cardStyle={cardStyle} />
+        <PlayerCard player={player} w={96} interactive flippable cardStyle={cardStyle} />
         <div>
           <div style={{ fontFamily: 'Archivo,sans-serif', fontWeight: 900, fontSize: 18 }}>{player.name}</div>
           <div style={{ color: C.mut, fontSize: 13, marginTop: 2 }}>{POS[player.pos].full} · {COUNTRIES[player.country].name}</div>
@@ -329,7 +345,7 @@ function FixedMarket({ won, setWon, onDone, cardStyle, filters, setFilters }) {
             <MiniCard player={p} w={44} cardStyle={cardStyle} />
             <div style={{ flex: 1, minWidth: 0 }}>
               <div style={{ fontFamily: 'Archivo,sans-serif', fontWeight: 800, fontSize: 14 }}>{p.name}</div>
-              <div style={{ color: C.mut, fontSize: 11.5 }}>{POS[p.pos].full} · {COUNTRIES[p.country].name} · OVR {p.ovr} · {RARITY[p.rarity].label}</div>
+              <div style={{ color: C.mut, fontSize: 11.5 }}>{POS[p.pos].full} · {COUNTRIES[p.country].name} · OVR {p.ovr} · {cardVisualOf(p.rarity).label}</div>
             </div>
             <Btn size="sm" disabled={need <= 0} onClick={() => setWon(w => [...w, p.id])}><CreditPill value={p.price} size="sm" /></Btn>
           </Surface>

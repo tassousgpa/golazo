@@ -1,14 +1,8 @@
-// app.jsx — GOLAZO root: routing, nav, match/market/pack flows, tweaks
+// app.jsx — GOLAZO root: routing, nav, match/market flows
 const { useState } = React;
 
-const TWEAK_DEFAULTS = /*EDITMODE-BEGIN*/{
-  "cardStyle": "blason",
-  "theme": "navy"
-}/*EDITMODE-END*/;
-
 function App() {
-  const [t, setTweak] = useTweaks(TWEAK_DEFAULTS);
-  window.__cardStyle = t.cardStyle;
+  window.__cardStyle = 'blason';
   const [isMobile, setIsMobile] = useState(() => typeof window !== 'undefined' && window.innerWidth < 520);
   React.useEffect(() => {
     const onResize = () => setIsMobile(window.innerWidth < 520);
@@ -16,56 +10,114 @@ function App() {
     return () => window.removeEventListener('resize', onResize);
   }, []);
 
-  const [auth, setAuth] = useState(false);
+  const [auth, setAuth] = useState(() => !!loadProfile()?.setupComplete);
+  const [profile, setProfile] = useState(() => {
+    const p = loadProfile();
+    if (p?.setupComplete) applyProfile(p);
+    return p;
+  });
+  const [setup, setSetup] = useState(false);
   const [tab, setTab] = useState('home');
-  const [flow, setFlow] = useState(null);      // null | 'create' | 'createMarket'
-  const [match, setMatch] = useState(null);    // {midA, midB, replay, seed, bonusA}
-  const [packOpen, setPackOpen] = useState(null); // {tier, mode, onComplete}
+  const [flow, setFlow] = useState(null);
+  const [match, setMatch] = useState(null);
+  const [packOpen, setPackOpen] = useState(null);
   const [plannedBonus, setPlannedBonus] = useState(() => loadPlannedBonus());
+  const [demo, setDemo] = useState(false);
+
+  const cardStyle = 'blason';
+  const bg = 'radial-gradient(120% 80% at 50% 0%, #111a2e, #0c0f1c 65%)';
 
   const openPack = (tier, mode, onComplete) => setPackOpen({ tier, mode, onComplete });
   const closePack = () => setPackOpen(null);
-
-  const bg = t.theme === 'nuit'
-    ? 'radial-gradient(120% 80% at 50% 0%, #090c18, #04060f 70%)'
-    : 'radial-gradient(120% 80% at 50% 0%, #111a2e, #0c0f1c 65%)';
 
   const startMatch = (oppMid, opts = {}) => setMatch({
     midA: 'm1', midB: oppMid,
     bonusA: opts.bonusA !== undefined ? opts.bonusA : plannedBonus,
     ...opts,
   });
+
   const goTab = (k) => { setFlow(null); setTab(k); };
   const saveBonusPlan = (bonus) => {
     savePlannedBonus(bonus);
     setPlannedBonus(bonus);
   };
 
+  const handleAuth = (data = {}) => {
+    setAuth(true);
+    const existing = loadProfile();
+    if (existing?.setupComplete) {
+      applyProfile(existing);
+      setProfile(existing);
+      setTab('home');
+    } else {
+      if (data.pseudo && !existing?.pseudo) {
+        const draft = { ...(existing || {}), pseudo: data.pseudo };
+        setProfile(draft);
+      }
+      setSetup(true);
+    }
+  };
+
+  const handleSetupComplete = (p) => {
+    setProfile(p);
+    setSetup(false);
+    setFlow('createMarket');
+  };
+
+  const handleMarketDone = () => {
+    const p = { ...(profile || loadProfile() || {}), marketComplete: true };
+    saveProfile(p);
+    setProfile(p);
+    setFlow(null);
+    setTab('club');
+  };
+
+  const scheduledOpponent = () => {
+    const you = MANAGERS.find(m => m.you);
+    const oppRow = STANDINGS.find(s => s.mid !== you.id);
+    return oppRow?.mid || 'm3';
+  };
+
   let content;
-  if (flow === 'create') {
-    content = <CreateLeague onBack={() => setFlow(null)} onLaunchMarket={() => setFlow('createMarket')} />;
+  if (setup) {
+    content = (
+      <TeamSetup
+        initialPseudo={profile?.pseudo}
+        onBack={() => { setAuth(false); setSetup(false); }}
+        onComplete={handleSetupComplete}
+      />
+    );
   } else if (flow === 'createMarket') {
-    content = <MarketScreen cardStyle={t.cardStyle} onOpenPack={openPack} onDone={() => { setFlow(null); setTab('club'); }} />;
+    content = (
+      <MarketScreen
+        cardStyle={cardStyle}
+        onOpenPack={openPack}
+        onDone={handleMarketDone}
+        firstTime
+      />
+    );
   } else if (tab === 'home') {
-    content = <LeagueHome
-      cardStyle={t.cardStyle}
-      plannedBonus={plannedBonus}
-      onPlanBonus={saveBonusPlan}
-      onStartMatch={(mid) => startMatch(mid)}
-      onSimulate={() => startMatch('m3', { seed: 4242 })}
-      onCreateLeague={() => setFlow('create')}
-      onOpenMarket={() => setTab('market')}
-      onOpenSquad={() => setTab('club')}
-      onOpenShop={() => setTab('shop')} />;
+    content = (
+      <LeagueHome
+        cardStyle={cardStyle}
+        profile={profile}
+        plannedBonus={plannedBonus}
+        onPlanBonus={saveBonusPlan}
+        onStartMatch={(mid) => startMatch(mid)}
+        onOpenMarket={() => setTab('market')}
+        onOpenSquad={() => setTab('club')}
+        onOpenShop={() => setTab('shop')}
+      />
+    );
   } else if (tab === 'club') {
-    content = <ClubScreen cardStyle={t.cardStyle} />;
+    content = <ClubScreen cardStyle={cardStyle} />;
   } else if (tab === 'market') {
-    content = <MarketScreen cardStyle={t.cardStyle} onOpenPack={openPack} onDone={() => setTab('club')} />;
+    content = <MarketScreen cardStyle={cardStyle} onOpenPack={openPack} onDone={() => setTab('club')} />;
   } else if (tab === 'shop') {
-    content = <ShopScreen cardStyle={t.cardStyle} onOpenPack={openPack} />;
+    content = <ShopScreen cardStyle={cardStyle} onOpenPack={openPack} />;
   }
 
-  const showNav = auth && !match && !flow;
+  const showNav = auth && !match && !flow && !setup;
 
   return (
     <div style={{
@@ -76,18 +128,20 @@ function App() {
       <IOSDevice dark fullscreen={isMobile}>
         <div style={{ height: '100%', position: 'relative', background: bg, color: C.txt, fontFamily: 'Hanken Grotesk, sans-serif', overflow: 'hidden' }}>
           {!auth ? (
-            <Onboarding onAuth={() => { setAuth(true); setTab('home'); }} />
+            <React.Fragment>
+              <Onboarding onAuth={handleAuth} onDemo={() => setDemo(true)} />
+              {demo && <ProductDemo onClose={() => setDemo(false)} cardStyle={cardStyle} />}
+            </React.Fragment>
           ) : match ? (
             <div style={{ position: 'absolute', inset: 0, zIndex: 150, background: bg, display: 'flex', flexDirection: 'column', overflow: 'hidden' }}>
               <MatchFlow {...match} onExit={() => setMatch(null)} isMobile={isMobile} />
             </div>
           ) : (
-            <div style={{ height: '100%', overflowY: 'auto', WebkitOverflowScrolling: 'touch', padding: '58px 18px 110px' }} key={flow || tab}>
+            <div style={{ height: '100%', overflowY: 'auto', WebkitOverflowScrolling: 'touch', padding: '58px 18px 110px' }} key={flow || tab || (setup ? 'setup' : 'main')}>
               {content}
             </div>
           )}
 
-          {/* Pack opening overlay — above everything except TweaksPanel */}
           {packOpen && (
             <PackOpening
               tier={packOpen.tier}
@@ -97,20 +151,15 @@ function App() {
             />
           )}
 
-          {showNav && <BottomNav tab={tab} onTab={goTab} onMatch={() => startMatch('m3')} />}
+          {showNav && (
+            <BottomNav
+              tab={tab}
+              onTab={goTab}
+              onMatch={() => startMatch(scheduledOpponent())}
+            />
+          )}
         </div>
       </IOSDevice>
-
-      <TweaksPanel>
-        <TweakSection label="Cartes" />
-        <TweakRadio label="Style de carte" value={t.cardStyle}
-          options={['blason', 'maillot', 'minimal']}
-          onChange={(v) => setTweak('cardStyle', v)} />
-        <TweakSection label="Ambiance" />
-        <TweakRadio label="Fond" value={t.theme}
-          options={['indigo', 'nuit']}
-          onChange={(v) => setTweak('theme', v)} />
-      </TweaksPanel>
     </div>
   );
 }
