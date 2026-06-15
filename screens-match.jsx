@@ -21,6 +21,21 @@ function seqFor(m) {
   return [...draw, ...action, ['stopped', 2200]];
 }
 
+function fieldPlayersForMoment(m, team, role) {
+  const outfield = team.field?.outfield || [];
+  if (m.type === 'duel' || m.type === 'penalty') return [];
+  if (m.type === 'contre' && role === 'def') {
+    if (m.defExcluded) return outfield.filter(p => p.id !== m.defExcluded.id);
+    return outfield.slice(0, 2);
+  }
+  if (m.type === 'contre' && role === 'atk') return [];
+  return outfield;
+}
+
+function useFieldLayout(m) {
+  return m.type === 'possession' || m.type === 'corner' || m.type === 'contre';
+}
+
 function resolveActionSides(m, A, B, youSide) {
   const atkTeam = m.atk === 'A' ? A : B;
   const defTeam = m.atk === 'A' ? B : A;
@@ -29,14 +44,14 @@ function resolveActionSides(m, A, B, youSide) {
   const atkSide = {
     mgr: atkMgr,
     player: m.atkPlayer,
-    fieldPlayers: atkTeam.field.outfield,
+    fieldPlayers: fieldPlayersForMoment(m, atkTeam, 'atk'),
     highlightId: m.atkPlayer?.id,
     lines: m.atkLines || [],
   };
   const defSide = {
     mgr: defMgr,
     player: m.defPlayer,
-    fieldPlayers: defTeam.field.outfield,
+    fieldPlayers: fieldPlayersForMoment(m, defTeam, 'def'),
     highlightId: m.defPlayer?.id,
     lines: m.defLines || [],
   };
@@ -377,39 +392,77 @@ function MomentTimeline({ moments, active, resolvedUpTo }) {
   );
 }
 
-function MomentDrawReveal({ m, atkMgr, youSide }) {
+function MomentDrawReveal({ m, atkMgr, youSide, onReveal }) {
+  const [revealed, setRevealed] = React.useState(false);
+  const doneRef = React.useRef(false);
   const isYours = m.atk === youSide;
   const ec = EVENT_COLORS[m.type] || C.acc;
+
+  const finish = React.useCallback(() => {
+    if (doneRef.current) return;
+    doneRef.current = true;
+    setRevealed(true);
+    onReveal?.();
+  }, [onReveal]);
+
+  React.useEffect(() => {
+    const t = setTimeout(finish, 10000);
+    return () => clearTimeout(t);
+  }, [finish]);
+
   return (
-    <div style={{ flex: 1, minHeight: 0, display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', gap: 14, padding: '8px 16px' }}>
-      <div style={{ animation: 'momentDraw .55s ease both', textAlign: 'center' }}>
-        <div style={{ fontSize: 9, fontWeight: 800, color: C.mut2, letterSpacing: 1.6, textTransform: 'uppercase', fontFamily: 'Archivo,sans-serif' }}>Tirage — moment {m.i != null ? m.i + 1 : ''}</div>
-        <div style={{
-          width: 132, aspectRatio: '0.72', margin: '10px auto', borderRadius: 14, overflow: 'hidden', position: 'relative',
-          background: 'linear-gradient(155deg, rgba(18,14,30,0.96), rgba(8,6,18,0.98))',
-          border: `2px solid ${ec}`, boxShadow: `0 0 28px ${ec}55`,
-          display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', gap: 8,
-          animation: 'cardFlip .55s cubic-bezier(.2,.8,.2,1) both',
-        }}>
-          <div style={{ position: 'absolute', inset: 0, background: `radial-gradient(circle at 50% 40%, ${ec}22, transparent 65%)` }} />
-          <GzIcon name={m.icon} size={34} color={ec} />
-          <div style={{ fontFamily: 'Archivo,sans-serif', fontWeight: 900, fontSize: 12, color: '#fff', letterSpacing: 0.5, position: 'relative' }}>{m.label.toUpperCase()}</div>
+    <div
+      onClick={(e) => { e.stopPropagation(); finish(); }}
+      role="button"
+      tabIndex={0}
+      onKeyDown={e => { if (e.key === 'Enter' || e.key === ' ') { e.stopPropagation(); finish(); } }}
+      style={{ flex: 1, minHeight: 0, display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', gap: 14, padding: '8px 16px', cursor: revealed ? 'default' : 'pointer' }}
+    >
+      {!revealed ? (
+        <div style={{ textAlign: 'center', animation: 'fadeIn .35s both' }}>
+          <div style={{ fontSize: 9, fontWeight: 800, color: C.mut2, letterSpacing: 1.6, textTransform: 'uppercase', fontFamily: 'Archivo,sans-serif' }}>Moment {m.i != null ? m.i + 1 : ''} — touche pour révéler</div>
+          <div style={{
+            width: 132, aspectRatio: '0.72', margin: '14px auto', borderRadius: 14, overflow: 'hidden', position: 'relative',
+            background: 'linear-gradient(155deg, rgba(18,14,30,0.96), rgba(8,6,18,0.98))',
+            border: `2px dashed ${C.line}`, display: 'flex', alignItems: 'center', justifyContent: 'center',
+            animation: 'packShake 1.2s ease-in-out infinite',
+          }}>
+            <div style={{ fontFamily: 'Archivo,sans-serif', fontWeight: 900, fontSize: 42, color: 'rgba(255,255,255,0.2)' }}>?</div>
+          </div>
+          <div style={{ fontSize: 11, color: C.mut2, fontFamily: 'Archivo,sans-serif', fontWeight: 700 }}>Révélation auto dans 10 s</div>
         </div>
-      </div>
-      <div style={{ animation: 'fadeIn .45s .25s both', textAlign: 'center', maxWidth: 300 }}>
-        <div style={{
-          display: 'inline-flex', alignItems: 'center', gap: 10, padding: '9px 18px', borderRadius: 999,
-          background: isYours ? 'rgba(201,146,46,0.18)' : 'rgba(0,0,0,0.45)',
-          border: `1.5px solid ${isYours ? C.acc : atkMgr.color}`,
-          boxShadow: isYours ? '0 0 16px rgba(201,146,46,0.25)' : `0 0 12px ${atkMgr.color}33`,
-        }}>
-          <Avatar mgr={atkMgr} size={26} />
-          <div style={{ textAlign: 'left' }}>
-            <div style={{ fontSize: 8.5, color: isYours ? C.accL : C.mut2, fontWeight: 900, textTransform: 'uppercase', letterSpacing: 0.7, fontFamily: 'Archivo,sans-serif' }}>{isYours ? 'Ton moment' : 'Adversaire'}</div>
-            <div style={{ fontFamily: 'Archivo,sans-serif', fontWeight: 900, fontSize: 14, color: atkMgr.color }}>{atkMgr.name} attaque</div>
+      ) : (
+        <div style={{ animation: 'momentDraw .55s ease both', textAlign: 'center' }}>
+          <div style={{ fontSize: 9, fontWeight: 800, color: C.mut2, letterSpacing: 1.6, textTransform: 'uppercase', fontFamily: 'Archivo,sans-serif' }}>Tirage — moment {m.i != null ? m.i + 1 : ''}</div>
+          <div style={{
+            width: 132, aspectRatio: '0.72', margin: '10px auto', borderRadius: 14, overflow: 'hidden', position: 'relative',
+            background: 'linear-gradient(155deg, rgba(18,14,30,0.96), rgba(8,6,18,0.98))',
+            border: `2px solid ${ec}`, boxShadow: `0 0 28px ${ec}55`,
+            display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', gap: 8,
+            animation: 'cardFlip .55s cubic-bezier(.2,.8,.2,1) both',
+          }}>
+            <div style={{ position: 'absolute', inset: 0, background: `radial-gradient(circle at 50% 40%, ${ec}22, transparent 65%)` }} />
+            <GzIcon name={m.icon} size={34} color={ec} />
+            <div style={{ fontFamily: 'Archivo,sans-serif', fontWeight: 900, fontSize: 12, color: '#fff', letterSpacing: 0.5, position: 'relative' }}>{m.label.toUpperCase()}</div>
           </div>
         </div>
-      </div>
+      )}
+      {revealed && (
+        <div style={{ animation: 'fadeIn .45s .25s both', textAlign: 'center', maxWidth: 300 }}>
+          <div style={{
+            display: 'inline-flex', alignItems: 'center', gap: 10, padding: '9px 18px', borderRadius: 999,
+            background: isYours ? 'rgba(201,146,46,0.18)' : 'rgba(0,0,0,0.45)',
+            border: `1.5px solid ${isYours ? C.acc : atkMgr.color}`,
+            boxShadow: isYours ? '0 0 16px rgba(201,146,46,0.25)' : `0 0 12px ${atkMgr.color}33`,
+          }}>
+            <Avatar mgr={atkMgr} size={26} />
+            <div style={{ textAlign: 'left' }}>
+              <div style={{ fontSize: 8.5, color: isYours ? C.accL : C.mut2, fontWeight: 900, textTransform: 'uppercase', letterSpacing: 0.7, fontFamily: 'Archivo,sans-serif' }}>{isYours ? 'Ton moment' : 'Adversaire'}</div>
+              <div style={{ fontFamily: 'Archivo,sans-serif', fontWeight: 900, fontSize: 14, color: atkMgr.color }}>{atkMgr.name} attaque</div>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 }
@@ -449,11 +502,11 @@ function InvolvedPlayerCard({ player, cardStyle, highlight, gkGlow }) {
       animation: active ? 'cardPop .45s ease both' : 'none',
     }}>
       <div style={{ display: 'flex', justifyContent: 'center' }}>
-        <PlayerCard player={player} w={100} interactive={false} flippable={false} cardStyle={cardStyle} glowPulse={active} />
+        <PlayerCard player={player} w={100} interactive={false} flippable={false} cardStyle={cardStyle} glowPulse={active} showName />
       </div>
-      <div style={{ marginTop: 6, fontFamily: 'Archivo,sans-serif', fontWeight: 900, fontSize: 10, letterSpacing: 0.6, color: gkGlow ? '#66d9e8' : vis.text }}>
-        {gkGlow ? 'GARDIEN' : vis.label.toUpperCase()}
-      </div>
+      {gkGlow && (
+        <div style={{ marginTop: 4, fontFamily: 'Archivo,sans-serif', fontWeight: 900, fontSize: 10, letterSpacing: 0.6, color: '#66d9e8' }}>GARDIEN</div>
+      )}
     </div>
   );
 }
@@ -1241,25 +1294,61 @@ function MatchFlow({ midA, midB, replay, seed, bonusA: initialBonusA, onExit, is
   const [ai, setAi] = React.useState(0);
   const [micro, setMicro] = React.useState('draw');
   const tok = React.useRef(0);
+  const drawReadyRef = React.useRef(false);
   const cardStyle = window.__cardStyle || 'blason';
+
+  const handleDrawReveal = React.useCallback(() => {
+    drawReadyRef.current = true;
+  }, []);
 
   React.useEffect(() => {
     if (phase !== 'play' || !sim) return;
     const myTok = ++tok.current;
     const moment = sim.moments[ai];
     const seq = seqFor(moment);
-    let idx = 0; let timer;
+    let idx = 0;
+    let timer;
+
+    drawReadyRef.current = false;
     setMicro(seq[0][0]);
-    const run = () => {
+
+    const finishMoment = () => {
+      if (ai < 5) setAi(ai + 1);
+      else setTimeout(() => { if (tok.current === myTok) setPhase('result'); }, 350);
+    };
+
+    const runStep = () => {
+      if (tok.current !== myTok) return;
+      const step = seq[idx];
+      setMicro(step[0]);
+
+      if (step[0] === 'draw') {
+        const waitDraw = () => {
+          if (tok.current !== myTok) return;
+          if (!drawReadyRef.current) {
+            timer = setTimeout(waitDraw, 80);
+            return;
+          }
+          timer = setTimeout(() => {
+            if (tok.current !== myTok) return;
+            idx++;
+            if (idx < seq.length) runStep();
+            else finishMoment();
+          }, step[1]);
+        };
+        timer = setTimeout(waitDraw, 80);
+        return;
+      }
+
       timer = setTimeout(() => {
         if (tok.current !== myTok) return;
         idx++;
-        if (idx < seq.length) { setMicro(seq[idx][0]); run(); }
-        else if (ai < 5) setAi(ai + 1);
-        else setTimeout(() => { if (tok.current === myTok) setPhase('result'); }, 350);
-      }, seq[idx][1]);
+        if (idx < seq.length) runStep();
+        else finishMoment();
+      }, step[1]);
     };
-    run();
+
+    runStep();
     return () => { clearTimeout(timer); };
   }, [phase, ai, replay, sim]);
 
@@ -1310,7 +1399,7 @@ function MatchFlow({ midA, midB, replay, seed, bonusA: initialBonusA, onExit, is
   const finishSides = m ? resolveFinishSides(m, A, B, youSide) : null;
 
   const renderPlay = () => {
-    if (micro === 'draw') return <MomentDrawReveal m={m} atkMgr={atkMgr} youSide={youSide} />;
+    if (micro === 'draw') return <MomentDrawReveal m={m} atkMgr={atkMgr} youSide={youSide} onReveal={handleDrawReveal} />;
 
     if (micro === 'action') {
       const prob = m.duelPct;
@@ -1318,12 +1407,13 @@ function MatchFlow({ midA, midB, replay, seed, bonusA: initialBonusA, onExit, is
       const sides = m.penalty ? finishSides : actionSides;
       const gkLeft = m.penalty && !finishSides.youAttack;
       const gkRight = m.penalty && finishSides.youAttack;
+      const fieldLayout = !m.penalty && useFieldLayout(m);
       return (
         <SplitMomentScreen
           m={m} sides={sides} cardStyle={cardStyle}
           prob={prob} probLabel={probLabel} animate highlightPlayers
           gkLeft={gkLeft} gkRight={gkRight}
-          fieldPhase={!m.penalty}
+          fieldPhase={fieldLayout}
         />
       );
     }
@@ -1371,7 +1461,7 @@ function MatchFlow({ midA, midB, replay, seed, bonusA: initialBonusA, onExit, is
     if (micro === 'stopped') {
       return (
         <div style={{ flex: 1, minHeight: 0, position: 'relative' }}>
-          <SplitMomentScreen m={m} sides={actionSides} cardStyle={cardStyle} animate={false} fieldPhase />
+          <SplitMomentScreen m={m} sides={actionSides} cardStyle={cardStyle} animate={false} fieldPhase={useFieldLayout(m)} />
           <OutcomeBanner m={m} show />
         </div>
       );

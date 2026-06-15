@@ -125,10 +125,10 @@ function FrontBlason({ player, S, r, pos }) {
       )}
 
       {/* name + flag */}
-      <div style={{ position: 'absolute', left: 0, right: 0, bottom: statRows ? 28 * S : 10 * S, zIndex: 4, textAlign: 'center', padding: `0 ${8 * S}px` }}>
-        <div style={{ display: 'inline-flex', alignItems: 'center', justifyContent: 'center', gap: 4 * S, maxWidth: '100%' }}>
-          <Flag code={player.country} w={14 * S} r={2} />
-          <div style={{ fontFamily: 'Archivo,sans-serif', fontWeight: 800, fontSize: 11.5 * S, color: '#fff', textShadow: '0 1px 4px rgba(0,0,0,0.9)', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{player.name}</div>
+      <div style={{ position: 'absolute', left: 0, right: 0, bottom: statRows ? 32 * S : 12 * S, zIndex: 5, textAlign: 'center', padding: `0 ${6 * S}px` }}>
+        <div style={{ display: 'inline-flex', alignItems: 'center', justifyContent: 'center', gap: 5 * S, maxWidth: '100%', padding: `${3 * S}px ${8 * S}px`, borderRadius: 8 * S, background: 'rgba(0,0,0,0.55)' }}>
+          <Flag code={player.country} w={16 * S} r={2} />
+          <div style={{ fontFamily: 'Archivo,sans-serif', fontWeight: 900, fontSize: 13.5 * S, color: '#fff', textShadow: '0 1px 6px rgba(0,0,0,0.95)', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{player.name}</div>
         </div>
       </div>
 
@@ -229,7 +229,7 @@ function FrontFooterStats({ player, S, boostK }) {
 }
 
 // ─── Main PlayerCard ───
-function PlayerCard({ player, w = 200, interactive = true, flippable = true, flipped: flippedProp, onClick, dim = false, cardStyle = (typeof window !== 'undefined' && window.__cardStyle) || 'blason', selected = false, glowPulse = false, style = {} }) {
+function PlayerCard({ player, w = 200, interactive = true, flippable = true, flipped: flippedProp, onClick, dim = false, cardStyle = (typeof window !== 'undefined' && window.__cardStyle) || 'blason', selected = false, glowPulse = false, showName = false, style = {} }) {
   const [flip, setFlip] = React.useState(false);
   const flipped = flippedProp !== undefined ? flippedProp : flip;
   const ref = React.useRef(null);
@@ -251,7 +251,8 @@ function PlayerCard({ player, w = 200, interactive = true, flippable = true, fli
   const doFlip = (e) => { if (onClick) { onClick(e); return; } if (flippable && flippedProp === undefined) setFlip(f => !f); };
 
   return (
-    <div ref={ref} onPointerMove={move} onPointerLeave={leave} onClick={doFlip} style={{ width: w, height: h, perspective: 900, cursor: 'pointer', flexShrink: 0, filter: dim ? 'grayscale(0.65) brightness(0.55)' : 'none', transition: 'filter .25s', ...style }}>
+    <div style={{ display: 'inline-flex', flexDirection: 'column', alignItems: 'center', flexShrink: 0, ...style }}>
+    <div ref={ref} onPointerMove={move} onPointerLeave={leave} onClick={doFlip} style={{ width: w, height: h, perspective: 900, cursor: 'pointer', flexShrink: 0, filter: dim ? 'grayscale(0.65) brightness(0.55)' : 'none', transition: 'filter .25s' }}>
       <div style={{ position: 'relative', width: '100%', height: '100%', transformStyle: 'preserve-3d', transform: `rotateX(${tilt.rx}deg) rotateY(${(flipped ? 180 : 0) + tilt.ry}deg) scale(${tilt.active ? 1.03 : 1})`, transition: tilt.active ? 'transform .08s linear' : 'transform .5s cubic-bezier(.2,.8,.2,1)' }}>
         {/* FRONT */}
         <div style={{ position: 'absolute', inset: 0, backfaceVisibility: 'hidden', borderRadius: 18 * S, overflow: 'hidden', background: cardBg, boxShadow: `0 0 0 ${ringW}px ${r.ring}${selected ? '' : (visualTierOf(player.rarity) === 'commun' ? '44' : '66')}, 0 ${10 * S}px ${28 * S}px rgba(0,0,0,0.6)${r.glow !== 'transparent' ? `, 0 0 ${selected || glowPulse || isLegend ? 36 * S : 18 * S}px ${r.glow}` : ''}`, ...(glowPulse || isLegend ? { animation: isLegend ? 'cardPulse 1.8s ease-in-out infinite' : 'cardPulse 1.3s ease-in-out infinite' } : {}) }}>
@@ -282,6 +283,10 @@ function PlayerCard({ player, w = 200, interactive = true, flippable = true, fli
         </div>
       </div>
     </div>
+    {showName && (
+      <div style={{ marginTop: 6, maxWidth: w + 12, fontFamily: 'Archivo,sans-serif', fontWeight: 900, fontSize: Math.max(11, w * 0.1), color: C.txt, textAlign: 'center', lineHeight: 1.15, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{player.name}</div>
+    )}
+    </div>
   );
 }
 
@@ -304,7 +309,7 @@ function MiniCard({ player, w = 60, onClick, selected, cardStyle = (typeof windo
         <div style={{ width: 36 * S, height: 22 * S, borderRadius: `${18 * S}px ${18 * S}px 0 0`, background: 'rgba(0,0,0,0.28)', marginTop: -3 * S }} />
       </div>
       {player.boost && <div style={{ position: 'absolute', bottom: 22 * S, right: 5 * S, zIndex: 5 }}><BoostBadge S={S} compact /></div>}
-      <div style={{ position: 'absolute', left: 0, right: 0, bottom: 0, padding: `${10 * S}px ${4 * S}px ${5 * S}px`, background: 'linear-gradient(to top, rgba(0,0,0,0.72), transparent)', fontFamily: 'Archivo,sans-serif', fontWeight: 800, fontSize: 9.5 * S, color: '#fff', textAlign: 'center', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis', zIndex: 4 }}>{label || player.name.split(' ').pop()}</div>
+      <div style={{ position: 'absolute', left: 0, right: 0, bottom: 0, padding: `${10 * S}px ${4 * S}px ${5 * S}px`, background: 'linear-gradient(to top, rgba(0,0,0,0.82), transparent)', fontFamily: 'Archivo,sans-serif', fontWeight: 900, fontSize: 10.5 * S, color: '#fff', textAlign: 'center', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis', zIndex: 4 }}>{label || player.name}</div>
     </div>
   );
 }

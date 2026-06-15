@@ -14,23 +14,30 @@ const BONUSES = [
   { k: 'player', icon: 'star',   name: 'Boost joueur',         desc: '+6 sur une stat d\'un joueur, pour 1 match.',            cost: 14 },
 ];
 
-function ShopScreen({ cardStyle, onOpenPack }) {
+function ShopScreen({ cardStyle, profile, onOpenPack }) {
   const [tab, setTab] = React.useState('credits');
   const [credits, setCredits] = React.useState(340);
   const [jetons, setJetons] = React.useState(46);
   const [toast, setToast] = React.useState(null);
+  const isDraft = !profile?.marketComplete;
 
   const flash = (msg) => { setToast(msg); setTimeout(() => setToast(null), 1800); };
 
-  const buyPackCredits = (tier, price) => {
-    if (credits < price) { flash('Crédits insuffisants !'); return; }
-    setCredits(c => c - price);
-    onOpenPack(tier, 'shop', (ids) => { flash(`${byId(ids[0]).name} recruté !`); });
-  };
-  const buyPackJetons = (tier, price) => {
-    if (jetons < price) { flash('Jetons insuffisants !'); return; }
-    setJetons(j => j - price);
-    onOpenPack(tier, 'shop', (ids) => { flash(`${byId(ids[0]).name} recruté !`); });
+  const buyPack = (packId) => {
+    const def = MARKET_PACK_DEFS[packId];
+    if (!def) return;
+    if (credits < def.price) { flash('Crédits insuffisants !'); return; }
+    setCredits(c => c - def.price);
+    onOpenPack(packId, 'shop', (result) => {
+      if (Array.isArray(result) && result[0]?.in) {
+        applySquadSwaps(result);
+        flash(result.length ? `${result.length} échange(s) effectué(s)` : 'Pack jeté');
+      } else if (Array.isArray(result) && result.length) {
+        flash(`${result.length} joueur(s) recruté(s)`);
+      } else {
+        flash('Pack jeté');
+      }
+    }, { flow: isDraft ? 'initial' : 'swap' });
   };
 
   return (
@@ -69,7 +76,10 @@ function ShopScreen({ cardStyle, onOpenPack }) {
 
       {/* ── Packs ── */}
       {tab === 'packs' && (
-        <ShopPackSection credits={credits} jetons={jetons} onBuyWithCredits={buyPackCredits} onBuyWithJetons={buyPackJetons} />
+        <div>
+          <Banner icon="cards" tint="gold" title="Packs Standard & Premium" body="Même sélection qu'à la création d'équipe. Après la ligue : échange avec ton effectif ou jette tout." />
+          <MarketPackSection onBuyPack={buyPack} />
+        </div>
       )}
 
       {/* ── Bonus jetons ── */}

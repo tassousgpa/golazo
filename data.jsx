@@ -242,9 +242,55 @@ function buildTestProfile(overrides = {}) {
   };
 }
 
+const DEMO_FIXTURES = [
+  { id: 'f1', day: 1, midA: 'm1', midB: 'm2', status: 'finished', scoreA: 2, scoreB: 1 },
+  { id: 'f2', day: 1, midA: 'm3', midB: 'm4', status: 'finished', scoreA: 1, scoreB: 1 },
+  { id: 'f3', day: 2, midA: 'm1', midB: 'm3', status: 'live', scoreA: 1, scoreB: 0 },
+  { id: 'f4', day: 2, midA: 'm2', midB: 'm4', status: 'scheduled' },
+  { id: 'f5', day: 3, midA: 'm4', midB: 'm1', status: 'scheduled' },
+  { id: 'f6', day: 3, midA: 'm3', midB: 'm2', status: 'scheduled' },
+];
+const FIXTURES = [];
+
+function restoreFixtures(src) {
+  FIXTURES.length = 0;
+  src.forEach(f => FIXTURES.push({ ...f }));
+}
+
+function fixturesByDay() {
+  const days = {};
+  FIXTURES.forEach(f => {
+    if (!days[f.day]) days[f.day] = [];
+    days[f.day].push(f);
+  });
+  return Object.entries(days).map(([day, matches]) => ({ day: +day, matches })).sort((a, b) => a.day - b.day);
+}
+
+function upcomingFixtures() {
+  return FIXTURES.filter(f => f.status === 'scheduled' || f.status === 'live');
+}
+
+function getManagerSquadIds(mid) {
+  return squadIdsFrom(mid);
+}
+
+function applySquadSwaps(swaps) {
+  const current = squadIdsFrom('m1');
+  const next = [...current];
+  (swaps || []).forEach(({ in: inId, out: outId }) => {
+    const idx = next.indexOf(outId);
+    if (idx >= 0) next[idx] = inId;
+    else if (next.length < 6 && inId) next.push(inId);
+  });
+  const trimmed = next.filter(Boolean).slice(0, 6);
+  applyMySquad(trimmed);
+  return trimmed;
+}
+
 function applyBlankState() {
   restoreSquads({ m1: { gk: null, field: [], bench: [] } });
   restoreStandings([]);
+  restoreFixtures([]);
   restoreManagers([{ id: 'm1', name: 'Toi', avatar: '🦊', color: '#ff8a1e', you: true }]);
   syncRoles();
   try { localStorage.removeItem(MY_SQUAD_KEY); } catch { /* ignore */ }
@@ -253,6 +299,7 @@ function applyBlankState() {
 function applyTestState(profile) {
   restoreSquads(DEMO_SQUADS);
   restoreStandings(DEMO_STANDINGS);
+  restoreFixtures(DEMO_FIXTURES);
   restoreManagers(DEMO_MANAGERS);
   syncRoles();
   const p = { ...buildTestProfile(), ...profile };
@@ -358,5 +405,6 @@ Object.assign(window, {
   visualTierOf, cardVisualOf, loadProfile, saveProfile, applyProfile,
   hasSession, setSession, applyMySquad, loadMySquad, MY_SQUAD_KEY,
   isTestPseudo, initialsOf, buildTestProfile, applyBlankState, applyTestState,
-  syncGameStateFromProfile, bootstrapGameState,
+  syncGameStateFromProfile, bootstrapGameState, FIXTURES, fixturesByDay,
+  upcomingFixtures, getManagerSquadIds, applySquadSwaps,
 });

@@ -68,10 +68,10 @@ function AppShell() {
   const cardStyle = 'blason';
   const bg = 'radial-gradient(120% 80% at 50% 0%, #111a2e, #0c0f1c 65%)';
 
-  const openPack = (tierOrPackId, mode, onComplete) => setPackOpen({
-    tier: mode === 'market' ? null : tierOrPackId,
-    packId: mode === 'market' ? tierOrPackId : null,
-    mode,
+  const openPack = (packId, mode, onComplete, opts = {}) => setPackOpen({
+    packId,
+    mode: mode || 'market',
+    flow: opts.flow || (profile?.marketComplete ? 'swap' : 'initial'),
     onComplete,
   });
   const closePack = () => setPackOpen(null);
@@ -236,7 +236,10 @@ function AppShell() {
       <MarketScreen
         cardStyle={cardStyle}
         profile={profile}
-        onOpenPack={openPack}
+        onOpenPack={(id, mode, cb) => openPack(id, mode, (ids) => {
+          if (ids?.length) { applyMySquad(ids); }
+          if (cb) cb(ids);
+        }, { flow: 'initial' })}
         onDone={handleMarketDone}
         firstTime
       />
@@ -256,10 +259,54 @@ function AppShell() {
     );
   } else if (tab === 'club') {
     content = <ClubScreen cardStyle={cardStyle} />;
+  } else if (tab === 'calendar') {
+    content = <CalendarScreen cardStyle={cardStyle} onStartMatch={(mid) => startMatch(mid)} />;
+  } else if (tab === 'standings') {
+    content = <StandingsScreen cardStyle={cardStyle} />;
   } else if (tab === 'market') {
-    content = <MarketScreen cardStyle={cardStyle} profile={profile} onOpenPack={openPack} onDone={(ids) => { if (ids?.length) applyMySquad(ids); setTab('club'); }} />;
+    content = (
+      <MarketScreen
+        cardStyle={cardStyle}
+        profile={profile}
+        onOpenPack={(id, mode, cb) => openPack(id, mode, (result) => {
+          const isDraft = !profile?.marketComplete;
+          if (isDraft && Array.isArray(result) && result.length && typeof result[0] !== 'object') {
+            applyMySquad(result);
+          } else if (!isDraft && Array.isArray(result) && result[0]?.in) {
+            const ids = applySquadSwaps(result);
+            const p = { ...(profile || loadProfile() || {}), mySquad: ids };
+            saveProfile(p);
+            setProfile(p);
+            if (isSupabaseReady() && p.leagueId && p.memberId) {
+              supabaseSyncSquad(p.leagueId, p.memberId, ids);
+            }
+          }
+          if (cb) cb(result);
+        })}
+      />
+    );
   } else if (tab === 'shop') {
-    content = <ShopScreen cardStyle={cardStyle} onOpenPack={openPack} />;
+    content = (
+      <ShopScreen
+        cardStyle={cardStyle}
+        profile={profile}
+        onOpenPack={(id, mode, cb, opts) => openPack(id, mode, (result) => {
+          const isDraft = !profile?.marketComplete;
+          if (!isDraft && Array.isArray(result) && result[0]?.in) {
+            const ids = applySquadSwaps(result);
+            const p = { ...(profile || loadProfile() || {}), mySquad: ids };
+            saveProfile(p);
+            setProfile(p);
+            if (isSupabaseReady() && p.leagueId && p.memberId) {
+              supabaseSyncSquad(p.leagueId, p.memberId, ids);
+            }
+          } else if (isDraft && Array.isArray(result) && result.length && typeof result[0] !== 'object') {
+            applyMySquad(result);
+          }
+          if (cb) cb(result);
+        }, opts)}
+      />
+    );
   }
 
   const goHome = () => { setFlow(null); setTab('home'); setSetup(false); };
@@ -338,10 +385,10 @@ function AppShell() {
 
           {packOpen && (
             <PackOpening
-              tier={packOpen.tier}
               packId={packOpen.packId}
+              flow={packOpen.flow}
               mode={packOpen.mode}
-              onComplete={(ids) => { packOpen.onComplete(ids); closePack(); }}
+              onComplete={(result) => { packOpen.onComplete(result); closePack(); }}
               onClose={closePack}
             />
           )}

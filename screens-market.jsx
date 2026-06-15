@@ -52,13 +52,10 @@ function MarketFilters({ filters, onChange, compact }) {
       </div>
       <div>
         <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: 9, fontWeight: 800, color: C.mut2, letterSpacing: 0.5, marginBottom: 4, fontFamily: 'Archivo,sans-serif' }}>
-          <span>NOTE GLOBALE (OVR)</span>
-          <span style={{ color: C.accL }}>{ovrMin} – {ovrMax}</span>
+          <span>NOTE MINIMUM (OVR)</span>
+          <span style={{ color: C.accL }}>{ovrMin}+</span>
         </div>
-        <div style={{ display: 'flex', gap: 10, alignItems: 'center' }}>
-          <input type="range" min={58} max={99} value={ovrMin} onChange={e => set({ ovrMin: Math.min(+e.target.value, ovrMax) })} className="gz-range" style={{ flex: 1 }} />
-          <input type="range" min={58} max={99} value={ovrMax} onChange={e => set({ ovrMax: Math.max(+e.target.value, ovrMin) })} className="gz-range" style={{ flex: 1 }} />
-        </div>
+        <input type="range" min={58} max={99} value={ovrMin} onChange={e => set({ ovrMin: +e.target.value, ovrMax: 99 })} className="gz-range" style={{ width: '100%' }} />
       </div>
     </Surface>
   );
@@ -72,8 +69,18 @@ function useMarketFilters() {
   return { filters, setFilters, filtered };
 }
 
-function MarketHelpButton() {
+function MarketHelpButton({ isDraft = true }) {
   const [open, setOpen] = React.useState(false);
+  const items = isDraft ? [
+    { icon: 'whisper', title: 'Enchères secrètes', desc: 'Mise sur des joueurs précis. Le plus offrant remporte le joueur à la révélation.' },
+    { icon: 'cards', title: 'Packs', desc: '10 joueurs révélés, tu gardes 6. Standard 500 cr · Premium 750 cr.' },
+    { icon: 'forbidden', title: 'Joueurs uniques', desc: '1 joueur = 1 manager dans la ligue.' },
+    { icon: 'bolt', title: 'Priorité pack', desc: 'Pack > enchère — crédits remboursés en cas de conflit.' },
+  ] : [
+    { icon: 'cards', title: 'Packs Standard & Premium', desc: 'Ouvre un pack, garde les joueurs que tu veux en échangeant avec ton effectif (max 6).' },
+    { icon: 'cross', title: 'Tout jeter', desc: 'Tu peux aussi jeter tout le pack sans modifier ton équipe.' },
+    { icon: 'forbidden', title: 'Plus d\'enchères', desc: 'Après la création de ligue, seuls les packs permettent de renforcer ton effectif.' },
+  ];
   return (
     <React.Fragment>
       <button
@@ -87,18 +94,14 @@ function MarketHelpButton() {
         }}
       >?</button>
       <Sheet open={open} onClose={() => setOpen(false)} title="Marché des transferts">
-        <RuleList items={[
-          { icon: 'whisper', title: 'Enchères secrètes', desc: 'Mise sur des joueurs précis. Le plus offrant remporte le joueur à la révélation.' },
-          { icon: 'cards', title: 'Packs', desc: '10 joueurs, tu gardes 6. Standard 500 cr · Premium 750 cr.' },
-          { icon: 'forbidden', title: 'Joueurs uniques', desc: '1 joueur = 1 manager dans la ligue.' },
-          { icon: 'bolt', title: 'Priorité pack', desc: 'Pack > enchère — crédits remboursés en cas de conflit.' },
-        ]} />
+        <RuleList items={items} />
       </Sheet>
     </React.Fragment>
   );
 }
 
 function MarketScreen({ onDone, cardStyle, onOpenPack, firstTime, profile }) {
+  const isDraft = firstTime || !profile?.marketComplete;
   const startCredits = profile?.startCredits || DEFAULT_CREDITS;
   const leagueId = profile?.leagueId;
   const memberId = profile?.memberId;
@@ -210,34 +213,41 @@ function MarketScreen({ onDone, cardStyle, onOpenPack, firstTime, profile }) {
   const handleBuyPack = (packId) => {
     const def = MARKET_PACK_DEFS[packId];
     if (!def) return;
-    if (credits < def.price) { flash('Crédits insuffisants !'); return; }
-    setPackSpent(s => s + def.price);
-    onOpenPack(packId, 'market', (selectedIds) => {
-      const conflicts = selectedIds.filter(id => Object.keys(bids).includes(id));
-      setWon(prev => [...new Set([...prev, ...selectedIds])]);
-      if (conflicts.length) {
-        setPackConflicts(prev => [...prev, ...conflicts]);
-        flash(`Pack ouvert · ${conflicts.length} joueur(s) récupéré(s) sur des enchères adverses — crédits remboursés !`);
-      } else {
-        flash(`Pack ouvert — ${selectedIds.length} joueur(s) ajouté(s)`);
+    if (isDraft && credits < def.price) { flash('Crédits insuffisants !'); return; }
+    if (isDraft) setPackSpent(s => s + def.price);
+    onOpenPack(packId, 'market', (result) => {
+      if (isDraft && Array.isArray(result) && result.length && !result[0]?.in) {
+        setWon(prev => [...new Set([...prev, ...result])]);
+        flash(`Pack ouvert — ${result.length} joueur(s) ajouté(s)`);
+      } else if (!isDraft) {
+        flash(result?.length ? `${result.length} échange(s) effectué(s)` : 'Pack jeté');
       }
     });
   };
 
   if (phase === 'bid') return (
     <div>
-      <PageHeader title="Marché" pills={<CreditPill value={credits} size="sm" />} right={<MarketHelpButton />} />
-      {packConflicts.length > 0 && (
+      <PageHeader title="Marché" pills={isDraft ? <CreditPill value={credits} size="sm" /> : null} right={<MarketHelpButton isDraft={isDraft} />} />
+      {isDraft && packConflicts.length > 0 && (
         <Banner icon="bolt" tint="lime" title={`${packConflicts.length} joueur(s) récupéré(s)`} body="Priorité pack — crédits d'enchère remboursés" />
       )}
-      <Seg value={marketTab} onChange={setMarketTab} options={[{ v: 'encheres', label: 'Enchères' }, { v: 'packs', label: 'Packs' }]} />
+      {isDraft && (
+        <Seg value={marketTab} onChange={setMarketTab} options={[{ v: 'encheres', label: 'Enchères' }, { v: 'packs', label: 'Packs' }]} />
+      )}
+      {!isDraft && (
+        <Banner icon="cards" tint="gold" title="Packs uniquement" body="Échange avec ton effectif (max 6 joueurs) ou jette tout le pack. Plus d'enchères après la création de ligue." />
+      )}
       <div style={{ height: 10 }} />
 
-      {marketTab === 'encheres' && (
+      {(!isDraft || marketTab === 'packs') && (
+        <MarketPackSection onBuyPack={handleBuyPack} />
+      )}
+
+      {isDraft && marketTab === 'encheres' && (
         <MarketFilters filters={filters} onChange={setFilters} compact />
       )}
 
-      {marketTab === 'encheres' && (
+      {isDraft && marketTab === 'encheres' && (
         <div>
           {auctionCandidates.length === 0 ? (
             <Surface style={{ padding: 16, textAlign: 'center' }}><div style={{ color: C.mut }}>Aucun joueur pour ces filtres.</div></Surface>
@@ -277,10 +287,6 @@ function MarketScreen({ onDone, cardStyle, onOpenPack, firstTime, profile }) {
           </Btn>
           <div style={{ textAlign: 'center', color: C.mut2, fontSize: 11, marginTop: 8 }}>{Object.keys(bids).length} mise(s) · {won.length} joueur(s) pack</div>
         </div>
-      )}
-
-      {marketTab === 'packs' && (
-        <MarketPackSection onBuyPack={handleBuyPack} />
       )}
 
       <Sheet open={!!bidFor} onClose={() => setBidFor(null)} title={bidFor ? `Miser sur ${bidFor.name}` : ''}>

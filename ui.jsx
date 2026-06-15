@@ -455,6 +455,8 @@ const NavIcon = ({ name, active }) => {
   const icons = {
     home:   <path d="M3 11l9-7 9 7v9a1 1 0 0 1-1 1h-5v-6h-6v6H4a1 1 0 0 1-1-1z" {...p} />,
     club:   <path d="M12 3l7 3v5c0 4.5-3 8-7 10-4-2-7-5.5-7-10V6z" {...p} />,
+    calendar: <path d="M7 3v3M17 3v3M4 9h16M5 5h14a1 1 0 0 1 1 1v13a1 1 0 0 1-1 1H5a1 1 0 0 1-1-1V6a1 1 0 0 1 1-1z" {...p} />,
+    standings: <path d="M8 21V9M12 21V5M16 21v-7" {...p} />,
     market: <path d="M3 7l2-3h14l2 3M3 7v12a1 1 0 0 0 1 1h16a1 1 0 0 0 1-1V7M3 7h18M9 11a3 3 0 0 0 6 0" {...p} />,
     shop:   <path d="M5 8h14l-1 12a1 1 0 0 1-1 1H7a1 1 0 0 1-1-1zM9 8V6a3 3 0 0 1 6 0v2" {...p} />,
   };
@@ -487,11 +489,11 @@ class ErrorBoundary extends React.Component {
 
 function BottomNav({ tab, onTab, onMatch }) {
   const items = [
-    { k: 'home',   label: 'Accueil', icon: 'home'   },
-    { k: 'club',   label: 'Club',    icon: 'club'   },
+    { k: 'home',       label: 'Accueil',    icon: 'home' },
+    { k: 'calendar',   label: 'Calendrier', icon: 'calendar' },
     { k: '_match' },
-    { k: 'market', label: 'Marché',  icon: 'market' },
-    { k: 'shop',   label: 'Boutique',icon: 'shop'   },
+    { k: 'standings',  label: 'Ligue',      icon: 'standings' },
+    { k: 'market',     label: 'Marché',     icon: 'market' },
   ];
   return (
     <div style={{ position: 'absolute', left: 0, right: 0, bottom: 0, zIndex: 100, paddingBottom: 22, paddingTop: 8, background: `linear-gradient(to top, ${C.bg} 60%, transparent)` }}>
