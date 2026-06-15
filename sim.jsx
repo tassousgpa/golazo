@@ -39,12 +39,13 @@ const avg = (arr) => arr.reduce((s, x) => s + x, 0) / arr.length;
 
 // aggregate team stats from the 4 on-field players (gk only counts for keeping)
 function teamAgg(field) {
-  const o = field.outfield;
+  const o = (field.outfield || []).filter(Boolean);
   const g = (k) => avg(o.map(p => p.stats[k]));
+  const gkDef = field.gk?.stats?.def ?? 50;
   const agg = {
     vit: g('vit'), tir: g('tir'), dri: g('dri'),
     pas: g('pas'), phy: g('phy'), def: g('def'),
-    gkDef: field.gk.stats.def,
+    gkDef,
   };
   agg.ovr = Math.round((agg.vit + agg.tir + agg.dri + agg.pas + agg.phy + agg.def) / 6);
   return agg;
@@ -112,8 +113,8 @@ function applyMatchBonus(team, bonus) {
 // build a full team object for a manager id
 function buildTeam(mid) {
   const field = fieldOf(mid);
-  const rl = ROLES[mid];
-  const find = (id) => field.all.find(p => p.id === id) || withBoost(byId(id));
+  const rl = ROLES[mid] || {};
+  const find = (id) => (id && field.all.find(p => p?.id === id)) || (id ? withBoost(byId(id)) : null);
   return {
     mid,
     mgr: MANAGERS.find(m => m.id === mid),

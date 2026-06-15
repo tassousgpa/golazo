@@ -1,8 +1,9 @@
 // screens-setup.jsx — team profile + league creation (full onboarding journey)
 
-const SETUP_COUNTRIES = ['FRA', 'BRA', 'ARG', 'GER', 'ESP', 'ENG', 'POR', 'ITA', 'NED', 'BEL', 'MAR', 'SEN', 'USA', 'MEX', 'JPN', 'KOR'];
+const SETUP_COUNTRIES = ['FRA', 'BRA', 'ARG', 'GER', 'ESP', 'ENG', 'POR', 'ITA', 'NED', 'BEL', 'MAR', 'SEN', 'USA', 'MEX', 'JPN', 'KOR']
+  .filter(code => COUNTRIES[code]);
 
-function TeamSetup({ initialPseudo, onComplete, onBack }) {
+function TeamSetup({ initialPseudo, onComplete, onBack, setupError }) {
   const [step, setStep] = React.useState(0);
   const [pseudo, setPseudo] = React.useState(initialPseudo || '');
   const [teamName, setTeamName] = React.useState('');
@@ -10,7 +11,7 @@ function TeamSetup({ initialPseudo, onComplete, onBack }) {
   const [leagueName, setLeagueName] = React.useState('Coupe entre potes');
   const [hours, setHours] = React.useState(6);
   const [credits, setCredits] = React.useState(500);
-  const code = 'GOL-4F2K';
+  const [code] = React.useState(() => (typeof generateInviteCode === 'function' ? generateInviteCode() : 'GOL-XXXX'));
 
   const canNext = step === 0
     ? pseudo.trim().length >= 2 && teamName.trim().length >= 2
@@ -82,6 +83,7 @@ function TeamSetup({ initialPseudo, onComplete, onBack }) {
           <div style={{ display: 'grid', gridTemplateColumns: 'repeat(4, 1fr)', gap: 10 }}>
             {SETUP_COUNTRIES.map(code => {
               const c = COUNTRIES[code];
+              if (!c) return null;
               const sel = country === code;
               return (
                 <button key={code} onClick={() => setCountry(code)} style={{
@@ -140,6 +142,9 @@ function TeamSetup({ initialPseudo, onComplete, onBack }) {
       )}
 
       <div style={{ height: 20 }} />
+      {setupError && (
+        <Banner icon="cross" tint="pink" title="Enregistrement impossible" body={setupError} />
+      )}
       {step < 2 ? (
         <Btn full size="lg" disabled={!canNext} onClick={() => setStep(s => s + 1)}>Continuer →</Btn>
       ) : (

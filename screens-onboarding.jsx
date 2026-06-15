@@ -24,7 +24,7 @@ const FEATURE_SLIDES = [
   { title: 'MATCHS EN DIRECT', body: '6 actions clés, suspense à chaque tirage, résultat en 60s.', icon: 'trophy', player: null, playerName: 'Kylian Mbappé' },
 ];
 
-function Onboarding({ onAuth, onDemo }) {
+function Onboarding({ onAuth, onDemo, authError }) {
   const [authMode, setAuthMode] = React.useState(null);
   const [slideIdx, setSlideIdx] = React.useState(0);
 
@@ -125,6 +125,11 @@ function Onboarding({ onAuth, onDemo }) {
 
       {/* Auth sheet */}
       <Sheet open={!!authMode} onClose={() => setAuthMode(null)} title={authMode === 'signup' ? 'Créer ton compte' : 'Connexion'}>
+        {authError && (
+          <div style={{ background: 'rgba(191,48,144,0.15)', border: '1px solid rgba(191,48,144,0.4)', borderRadius: 12, padding: '10px 12px', marginBottom: 12, color: '#ff8ab8', fontSize: 13 }}>
+            {authError}
+          </div>
+        )}
         <AuthForm mode={authMode} onAuth={onAuth} />
       </Sheet>
     </div>
@@ -133,21 +138,43 @@ function Onboarding({ onAuth, onDemo }) {
 
 function AuthForm({ mode, onAuth }) {
   const [pseudo, setPseudo] = React.useState('');
+  const [email, setEmail] = React.useState('');
+  const [password, setPassword] = React.useState('');
+  const [loading, setLoading] = React.useState(false);
   const Field = ({ ph, type = 'text', value, onChange }) => (
     <input placeholder={ph} type={type} value={value} onChange={onChange} style={{ width: '100%', boxSizing: 'border-box', padding: '15px 16px', borderRadius: 14, marginBottom: 11, background: 'rgba(255,255,255,0.05)', border: `1px solid ${C.line}`, color: C.txt, fontSize: 15, fontFamily: 'Hanken Grotesk,sans-serif', outline: 'none' }} />
   );
-  const submit = () => onAuth(mode === 'signup' ? { pseudo: pseudo.trim() } : {});
+  const submit = async () => {
+    setLoading(true);
+    try {
+      await onAuth({
+        mode,
+        pseudo: pseudo.trim(),
+        email: email.trim(),
+        password,
+      });
+    } finally {
+      setLoading(false);
+    }
+  };
   return (
     <div>
       {mode === 'signup' && <Field ph="Ton pseudo" value={pseudo} onChange={e => setPseudo(e.target.value)} />}
-      <Field ph="Email" type="email" />
-      <Field ph="Mot de passe" type="password" />
+      <Field ph="Email" type="email" value={email} onChange={e => setEmail(e.target.value)} />
+      <Field ph="Mot de passe" type="password" value={password} onChange={e => setPassword(e.target.value)} />
+      {!isSupabaseReady() && (
+        <div style={{ color: C.mut2, fontSize: 11.5, marginBottom: 8, lineHeight: 1.4 }}>
+          Mode démo local — email/mot de passe simulés. Branche Supabase dans golazo-config.jsx pour de vrais comptes.
+        </div>
+      )}
       <div style={{ height: 6 }} />
-      <Btn full size="lg" onClick={submit}>{mode === 'signup' ? "C'est parti" : 'Se connecter'}</Btn>
+      <Btn full size="lg" disabled={loading} onClick={submit}>
+        {loading ? 'Connexion…' : (mode === 'signup' ? "C'est parti" : 'Se connecter')}
+      </Btn>
       <div style={{ display: 'flex', alignItems: 'center', gap: 12, margin: '18px 0' }}>
         <div style={{ flex: 1, height: 1, background: C.line }} /><span style={{ color: C.mut2, fontSize: 12 }}>ou</span><div style={{ flex: 1, height: 1, background: C.line }} />
       </div>
-      <Btn full kind="dark" onClick={submit}> Continuer avec Apple</Btn>
+      <Btn full kind="dark" disabled={loading} onClick={submit}> Continuer avec Apple</Btn>
     </div>
   );
 }

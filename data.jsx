@@ -58,6 +58,17 @@ function cardVisualOf(rarity) {
 }
 
 const PROFILE_KEY = 'golazo_profile';
+const SESSION_KEY = 'golazo_session';
+
+function hasSession() {
+  try { return sessionStorage.getItem(SESSION_KEY) === '1'; } catch { return false; }
+}
+function setSession(active) {
+  try {
+    if (active) sessionStorage.setItem(SESSION_KEY, '1');
+    else sessionStorage.removeItem(SESSION_KEY);
+  } catch { /* ignore */ }
+}
 
 function loadProfile() {
   try {
@@ -79,6 +90,31 @@ function applyProfile(profile) {
   if (profile.teamName) you.teamName = profile.teamName;
   if (profile.country) you.country = profile.country;
   if (profile.leagueName) you.leagueName = profile.leagueName;
+}
+
+const MY_SQUAD_KEY = 'golazo_squad';
+
+function applyMySquad(playerIds) {
+  if (!playerIds?.length) return;
+  const players = playerIds.map(byId).filter(Boolean);
+  const gk = players.find(p => p.pos === 'GK');
+  const rest = players.filter(p => p !== gk);
+  const gkId = gk?.id || players[0]?.id;
+  const others = gk ? rest : players.slice(1);
+  SQUADS.m1 = {
+    gk: gkId,
+    field: others.slice(0, 3).map(p => p.id),
+    bench: others.slice(3).map(p => p.id),
+  };
+  ROLES.m1 = resolveRoles({ m1: SQUADS.m1 }).m1;
+  try { localStorage.setItem(MY_SQUAD_KEY, JSON.stringify(playerIds)); } catch { /* ignore */ }
+}
+
+function loadMySquad() {
+  try {
+    const raw = localStorage.getItem(MY_SQUAD_KEY);
+    if (raw) applyMySquad(JSON.parse(raw));
+  } catch { /* ignore */ }
 }
 
 const POS = {
@@ -211,12 +247,14 @@ const AUCTION_POOL_NAMES = [
 const AUCTION_POOL_IDS = AUCTION_POOL_NAMES.map(playerByName).filter(Boolean).map(p => p.id);
 
 applyProfile(loadProfile());
+loadMySquad();
 
 Object.assign(window, {
   COUNTRIES, RARITY, RARITY_ORDER, CARD_VISUAL, POS, STAT_KEYS, STAT_LABEL, STAT_ABBR,
   PLAYERS, byId, MANAGERS, SQUADS, ROLES, STANDINGS, LIVE_BOOSTS,
-  MATCH_BONUSES, MATCH_BONUS_STATS, PLANNED_BONUS_KEY, PROFILE_KEY,
+  MATCH_BONUSES, MATCH_BONUS_STATS, PLANNED_BONUS_KEY, PROFILE_KEY, SESSION_KEY,
   COUNTRY_LIST, filterPlayers, normSearch, AUCTION_POOL_IDS, playerByName,
   overall, fieldOf, withBoost, loadPlannedBonus, savePlannedBonus, bonusLabel,
   visualTierOf, cardVisualOf, loadProfile, saveProfile, applyProfile,
+  hasSession, setSession, applyMySquad, loadMySquad, MY_SQUAD_KEY,
 });

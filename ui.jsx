@@ -431,6 +431,30 @@ const NavIcon = ({ name, active }) => {
   return <svg width="24" height="24" viewBox="0 0 24 24">{icons[name]}</svg>;
 };
 
+class ErrorBoundary extends React.Component {
+  constructor(props) {
+    super(props);
+    this.state = { error: null };
+  }
+  static getDerivedStateFromError(error) {
+    return { error };
+  }
+  render() {
+    if (this.state.error) {
+      return (
+        <div style={{ padding: 24, textAlign: 'center' }}>
+          <div style={{ fontFamily: 'Archivo,sans-serif', fontWeight: 900, fontSize: 18, color: C.accL, marginBottom: 10 }}>Oups — erreur d'affichage</div>
+          <div style={{ color: C.mut, fontSize: 13, lineHeight: 1.5, marginBottom: 16 }}>{String(this.state.error.message || this.state.error)}</div>
+          <Btn onClick={() => { try { localStorage.removeItem(PROFILE_KEY); sessionStorage.removeItem(SESSION_KEY); } catch {} window.location.reload(); }}>
+            Réinitialiser et recharger
+          </Btn>
+        </div>
+      );
+    }
+    return this.props.children;
+  }
+}
+
 function BottomNav({ tab, onTab, onMatch }) {
   const items = [
     { k: 'home',   label: 'Accueil', icon: 'home'   },
@@ -463,4 +487,4 @@ function BottomNav({ tab, onTab, onMatch }) {
   );
 }
 
-Object.assign(window, { C, HexBallIcon, GzIcon, IconBadge, PageHeader, Banner, ModeCard, RuleList, GemPill, HexFrame, XpBar, NavTile, Btn, Surface, Chip, Avatar, CreditPill, JetonPill, VsBar, TopBar, Section, Seg, Sheet, BottomNav });
+Object.assign(window, { C, HexBallIcon, GzIcon, IconBadge, PageHeader, Banner, ModeCard, RuleList, GemPill, HexFrame, XpBar, NavTile, Btn, Surface, Chip, Avatar, CreditPill, JetonPill, VsBar, TopBar, Section, Seg, Sheet, BottomNav, ErrorBoundary });

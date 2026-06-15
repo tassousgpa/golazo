@@ -78,16 +78,16 @@ function JerseyDot({ mgr, size = 36 }) {
 
 function LeagueHome({ onStartMatch, onOpenMarket, onOpenSquad, onOpenShop, cardStyle, plannedBonus, onPlanBonus, profile }) {
   const you = MANAGERS.find(m => m.you);
-  const yourRow = STANDINGS.find(s => s.mid === you.id);
-  const oppRow = STANDINGS.find(s => s.mid !== you.id);
-  const opp = MANAGERS.find(m => m.id === oppRow.mid);
-  const rank = rankOf(you.id);
-  const boosts = Object.keys(LIVE_BOOSTS);
-  const livePlayers = boosts.map(id => withBoost(byId(id)));
+  const yourRow = you ? (STANDINGS.find(s => s.mid === you.id) || { pts: 0, w: 0, d: 0, l: 0, gf: 0, ga: 0 }) : null;
+  const oppRow = you ? STANDINGS.find(s => s.mid !== you.id) : null;
+  const opp = oppRow ? MANAGERS.find(m => m.id === oppRow.mid) : MANAGERS[1];
+  const rank = you ? (rankOf(you.id) || 1) : 1;
+  const boosts = Object.keys(LIVE_BOOSTS || {});
+  const livePlayers = boosts.map(id => withBoost(byId(id))).filter(Boolean);
   const [showStandings, setShowStandings] = React.useState(false);
   const [showBonusPlan, setShowBonusPlan] = React.useState(false);
   const [draftBonus, setDraftBonus] = React.useState(plannedBonus);
-  const youTeam = buildTeam(you.id);
+  const youTeam = you ? buildTeam(you.id) : null;
   const [slide, setSlide] = React.useState(0);
 
   React.useEffect(() => { setDraftBonus(plannedBonus); }, [plannedBonus]);
@@ -97,6 +97,15 @@ function LeagueHome({ onStartMatch, onOpenMarket, onOpenSquad, onOpenShop, cardS
     const t = setInterval(() => setSlide(i => (i + 1) % livePlayers.length), 3500);
     return () => clearInterval(t);
   }, [livePlayers.length]);
+
+  if (!you) {
+    return (
+      <div style={{ textAlign: 'center', padding: 24 }}>
+        <div style={{ color: C.mut, marginBottom: 12 }}>Profil introuvable.</div>
+        <Btn onClick={() => window.location.reload()}>Recharger</Btn>
+      </div>
+    );
+  }
 
   return (
     <div>

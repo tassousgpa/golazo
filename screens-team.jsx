@@ -22,7 +22,7 @@ function Pitch({ gk, outfield, onTap }) {
       {outfield[1] && spot(outfield[1], 50, 22, true)}
       {outfield[2] && spot(outfield[2], 78, 30)}
       {/* gk */}
-      {spot(gk, 50, 82)}
+      {gk && spot(gk, 50, 82)}
       <div style={{ position: 'absolute', bottom: 8, left: 0, right: 0, textAlign: 'center', color: 'rgba(255,255,255,0.5)', fontSize: 10.5, fontWeight: 800, fontFamily: 'Archivo,sans-serif', letterSpacing: 1 }}>1 GARDIEN · 3 JOUEURS DE CHAMP</div>
     </div>
   );
@@ -46,7 +46,15 @@ function ClubScreen({ cardStyle }) {
   const [swap, setSwap] = React.useState(null);
 
   const gk = withBoost(byId(field[0]));
-  const outfield = field.slice(1).map(id => withBoost(byId(id)));
+  const outfield = field.slice(1).map(id => withBoost(byId(id))).filter(Boolean);
+  if (!gk) {
+    return (
+      <div style={{ textAlign: 'center', padding: 24 }}>
+        <div style={{ color: C.mut, marginBottom: 12 }}>Effectif incomplet — recharge la page ou refais le marché.</div>
+        <Btn onClick={() => window.location.reload()}>Recharger</Btn>
+      </div>
+    );
+  }
   const agg = teamAgg({ gk, outfield });
   const you = MANAGERS[0];
 

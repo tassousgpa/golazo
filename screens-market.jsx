@@ -1,5 +1,5 @@
 // screens-market.jsx — transfer market: blind auction + packs + player catalogue filters
-const START_CREDITS = 500;
+const DEFAULT_CREDITS = 500;
 const MARKET_LIST_CAP = 60;
 
 function MarketFilters({ filters, onChange, compact }) {
@@ -72,7 +72,11 @@ function useMarketFilters() {
   return { filters, setFilters, filtered };
 }
 
-function MarketScreen({ onDone, cardStyle, onOpenPack, firstTime }) {
+function MarketScreen({ onDone, cardStyle, onOpenPack, firstTime, profile }) {
+  const startCredits = profile?.startCredits || DEFAULT_CREDITS;
+  const leagueId = profile?.leagueId;
+  const memberId = profile?.memberId;
+
   const [phase, setPhase] = React.useState('intro');
   const [marketTab, setMarketTab] = React.useState('encheres');
   const [bids, setBids] = React.useState({});
@@ -84,7 +88,17 @@ function MarketScreen({ onDone, cardStyle, onOpenPack, firstTime }) {
   const [packSpent, setPackSpent] = React.useState(0);
   const [packConflicts, setPackConflicts] = React.useState([]);
   const [toast, setToast] = React.useState(null);
+  const [revealing, setRevealing] = React.useState(false);
   const { filters, setFilters, filtered } = useMarketFilters();
+
+  React.useEffect(() => {
+    if (!isSupabaseReady() || !leagueId || !memberId) return;
+    let cancelled = false;
+    supabaseFetchMyBids(leagueId, memberId).then((remote) => {
+      if (!cancelled && remote && Object.keys(remote).length) setBids(remote);
+    });
+    return () => { cancelled = true; };
+  }, [leagueId, memberId]);
 
   const ownedSet = React.useMemo(() => new Set(won), [won]);
   const auctionCandidates = React.useMemo(() => {
@@ -95,14 +109,31 @@ function MarketScreen({ onDone, cardStyle, onOpenPack, firstTime }) {
   }, [filtered, filters, ownedSet]);
 
   const bidTotal = Object.values(bids).reduce((s, x) => s + x, 0);
-  const credits = START_CREDITS - bidTotal - packSpent;
+  const credits = startCredits - bidTotal - packSpent;
 
   const flash = (msg) => { setToast(msg); setTimeout(() => setToast(null), 2400); };
 
-  const runReveal = () => {
-    const pool = Object.keys(bids).map(byId).filter(Boolean);
+  const startRevealAnim = (res, nextWon) => {
+    setResults(res);
+    setWon([...new Set(nextWon)]);
+    setPhase('reveal');
+    setRevealN(0);
+    let i = 0;
+    const tick = setInterval(() => {
+      i++;
+      setRevealN(i);
+      if (i >= res.length) clearInterval(tick);
+    }, 480);
+  };
+
+  const runRevealLocal = () => {
+    const bidPool = Object.keys(bids).map(byId).filter(Boolean);
+    const packOnly = won.filter(id => !bids[id]).map(byId).filter(Boolean);
+    const pool = [...bidPool, ...packOnly.filter(p => !bidPool.some(x => x.id === p.id))];
     const res = pool.map(p => {
       const mine = bids[p.id] || 0;
+      const inPack = won.includes(p.id) && !mine;
+      if (inPack) return { p, mine: 0, all: [], winner: null, youWon: true, inPack: true };
       const rivals = [];
       const nRivals = mine ? (Math.random() < 0.7 ? 2 : 1) : (Math.random() < 0.45 ? 1 : 0);
       for (let i = 0; i < nRivals; i++) {
@@ -112,19 +143,43 @@ function MarketScreen({ onDone, cardStyle, onOpenPack, firstTime }) {
       const all = [{ mgr: MANAGERS[0], amt: mine, you: true }, ...rivals].filter(b => b.amt > 0);
       all.sort((a, b) => b.amt - a.amt);
       const winner = all[0];
-      const inPack = won.includes(p.id);
-      const youWon = !inPack && (winner && winner.you);
-      return { p, mine, all, winner: inPack ? null : winner, youWon };
+      const youWon = !!(winner && winner.you);
+      return { p, mine, all, winner, youWon, inPack: false };
     });
-    setResults(res);
-    const newWon = [...won, ...res.filter(r => r.youWon).map(r => r.p.id)];
-    setWon([...new Set(newWon)]);
-    setPhase('reveal'); setRevealN(0);
-    let i = 0;
-    const tick = setInterval(() => { i++; setRevealN(i); if (i >= res.length) clearInterval(tick); }, 480);
+    const newWon = [...new Set([...won, ...res.filter(r => r.youWon).map(r => r.p.id)])];
+    startRevealAnim(res.length ? res : packOnly.map(p => ({ p, mine: 0, all: [], winner: null, youWon: true, inPack: true })), newWon);
   };
 
-  const placeBid = (amt) => { setBids(b => ({ ...b, [bidFor.id]: amt })); setBidFor(null); };
+  const runReveal = async () => {
+    if (revealing) return;
+    setRevealing(true);
+    try {
+      if (isSupabaseReady() && leagueId && memberId) {
+        const resolved = await supabaseResolveAuction(leagueId, memberId, bids, won);
+        if (resolved) {
+          const newWon = [...new Set([...won, ...resolved.wonIds])];
+          startRevealAnim(resolved.results, newWon);
+          return;
+        }
+      }
+      runRevealLocal();
+    } catch (e) {
+      console.warn('GOLAZO reveal:', e);
+      flash('Sync en ligne impossible — révélation locale');
+      runRevealLocal();
+    } finally {
+      setRevealing(false);
+    }
+  };
+
+  const placeBid = (amt) => {
+    const next = { ...bids, [bidFor.id]: amt };
+    setBids(next);
+    setBidFor(null);
+    if (isSupabaseReady() && leagueId && memberId) {
+      supabaseSyncBids(leagueId, memberId, next);
+    }
+  };
 
   const handleBuyPack = (tier) => {
     const price = PACK_DEFS[tier].price;
@@ -148,7 +203,7 @@ function MarketScreen({ onDone, cardStyle, onOpenPack, firstTime }) {
     <div>
       <PageHeader sub="Coupe du Monde 2026" title="Marché des transferts" />
       <div style={{ display: 'flex', gap: 10, marginBottom: 16 }}>
-        <CreditPill value={START_CREDITS} /><span style={{ color: C.mut, fontSize: 12.5, alignSelf: 'center' }}>{PLAYERS.length} joueurs CDM · budget identique pour tous</span>
+        <CreditPill value={startCredits} /><span style={{ color: C.mut, fontSize: 12.5, alignSelf: 'center' }}>{PLAYERS.length} joueurs CDM · budget identique pour tous</span>
       </div>
       <div style={{ display: 'flex', gap: 11 }}>
         <ModeCard icon="whisper" title="Enchères secrètes" desc="Mise sur des joueurs précis. Révélation à la fin." onClick={() => setPhase('bid')} tint="gold" />
@@ -216,7 +271,9 @@ function MarketScreen({ onDone, cardStyle, onOpenPack, firstTime }) {
             </div>
           )}
           <div style={{ height: 16 }} />
-          <Btn full size="lg" disabled={Object.keys(bids).length === 0 && won.length === 0} onClick={runReveal}>Verrouiller mes enchères →</Btn>
+          <Btn full size="lg" disabled={revealing || (Object.keys(bids).length === 0 && won.length === 0)} onClick={runReveal}>
+            {revealing ? 'Révélation en cours…' : 'Verrouiller mes enchères →'}
+          </Btn>
           <div style={{ textAlign: 'center', color: C.mut2, fontSize: 11, marginTop: 8 }}>{Object.keys(bids).length} mise(s) · {won.length} joueur(s) pack</div>
         </div>
       )}
@@ -251,7 +308,7 @@ function MarketScreen({ onDone, cardStyle, onOpenPack, firstTime }) {
       <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
         {results.map((r, i) => {
           const shown = i < revealN;
-          const inPack = packConflicts.includes(r.p.id) || (!r.winner && won.includes(r.p.id));
+          const inPack = r.inPack || packConflicts.includes(r.p.id) || (!r.winner && won.includes(r.p.id));
           return (
             <Surface key={r.p.id} style={{ padding: 10, display: 'flex', alignItems: 'center', gap: 12, opacity: shown ? 1 : 0.25, transition: 'all .4s', borderColor: shown && (r.youWon || inPack) ? 'rgba(50,200,112,0.5)' : C.line, background: shown && (r.youWon || inPack) ? 'rgba(50,200,112,0.08)' : C.surf }}>
               <MiniCard player={r.p} w={46} cardStyle={cardStyle} />
@@ -292,7 +349,7 @@ function MarketScreen({ onDone, cardStyle, onOpenPack, firstTime }) {
         {won.map(id => <div key={id} style={{ display: 'flex', justifyContent: 'center' }}><PlayerCard player={byId(id)} w={98} interactive flippable cardStyle={cardStyle} /></div>)}
       </div>
       <div style={{ height: 20 }} />
-      <Btn full size="lg" onClick={onDone}>Composer mon équipe →</Btn>
+      <Btn full size="lg" onClick={() => onDone(won)}>Composer mon équipe →</Btn>
     </div>
   );
 }
