@@ -68,7 +68,7 @@ function resolveFinishSides(m, A, B, youSide) {
   const shooterSide = {
     mgr: atkTeam.mgr,
     player: shooter,
-    lines: [{ label: 'Tir', key: 'tir', value: shooter.stats.tir, bonus: shooter.boost?.stat === 'tir' ? shooter.boost.amount : 0 }],
+    lines: shooter ? [{ label: 'Tir', key: 'tir', value: shooter.stats.tir, bonus: shooter.boost?.stat === 'tir' ? shooter.boost.amount : 0 }] : [],
   };
   const gkSide = {
     mgr: defTeam.mgr,
@@ -678,6 +678,9 @@ function MatchTopBar({ onBack, journee = 5, right, compact }) {
 }
 
 function TeamEmblem({ mgr, size = 44 }) {
+  if (!mgr) {
+    return <div style={{ width: size, height: size, borderRadius: 12, flexShrink: 0, background: C.surf2, border: '1px solid ' + C.line }} />;
+  }
   const isGold = mgr.you || mgr.color === '#ff8a1e';
   return (
     <div style={{

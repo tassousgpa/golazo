@@ -210,6 +210,7 @@ function ClubIdentityHeader({ pseudo, country, teamName }) {
 }
 
 function CardDetail({ player, cardStyle }) {
+  if (!player) return null;
   return (
     <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center' }}>
       <PlayerCard player={player} w={210} cardStyle={cardStyle} />

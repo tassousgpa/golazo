@@ -127,6 +127,7 @@ function TradeTab({ cardStyle, flash }) {
         {offers.map(o => {
           const mgr = MANAGERS.find(m => m.id === o.from);
           const give = byId(o.give), want = byId(o.want);
+          if (!mgr || !give || !want) return null;
           return (
             <Surface key={o.id} style={{ padding: 14 }}>
               <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 12 }}>
@@ -157,12 +158,15 @@ function TradeTab({ cardStyle, flash }) {
 }
 
 function ComposeTrade({ onSend, cardStyle }) {
-  const mine = SQUADS.m1.field.map(byId);
-  const theirsMgr = MANAGERS[1];
-  const theirs = SQUADS.m2.field.map(byId);
-  const [give, setGive] = React.useState(mine[0].id);
-  const [want, setWant] = React.useState(theirs[0].id);
+  const mine = (SQUADS.m1?.field || []).map(byId).filter(Boolean);
+  const theirsMgr = MANAGERS.find(m => m.id === 'm2') || MANAGERS[1];
+  const theirs = (SQUADS.m2?.field || []).map(byId).filter(Boolean);
+  const [give, setGive] = React.useState(mine[0]?.id || '');
+  const [want, setWant] = React.useState(theirs[0]?.id || '');
   const [credits, setCredits] = React.useState(0);
+  if (!theirsMgr || !mine.length || !theirs.length) {
+    return <Surface style={{ padding: 16, textAlign: 'center' }}><div style={{ color: C.mut }}>Effectif insuffisant pour proposer un échange.</div></Surface>;
+  }
   const Row = ({ list, val, set, label, labelColor }) => (
     <div>
       <div style={{ fontSize: 12, fontWeight: 800, color: labelColor || C.mut, marginBottom: 8, fontFamily: 'Archivo,sans-serif' }}>{label}</div>

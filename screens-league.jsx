@@ -63,6 +63,9 @@ function TrophyShield({ rank, pts }) {
 }
 
 function JerseyDot({ mgr, size = 36 }) {
+  if (!mgr) {
+    return <div style={{ width: size, height: size, borderRadius: 10, flexShrink: 0, background: C.surf2, border: '1px solid ' + C.line }} />;
+  }
   return (
     <div style={{
       width: size, height: size, borderRadius: 10, flexShrink: 0,
@@ -245,6 +248,7 @@ function LeagueHome({ onStartMatch, onOpenMarket, onOpenSquad, onOpenShop, cardS
         <Surface style={{ overflow: 'hidden' }}>
           {STANDINGS.map((row, i) => {
             const m = MANAGERS.find(x => x.id === row.mid);
+            if (!m) return null;
             return (
               <div key={row.mid} style={{
                 display: 'flex', alignItems: 'center', gap: 11, padding: '11px 14px',

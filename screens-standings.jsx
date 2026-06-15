@@ -1,7 +1,7 @@
 // screens-standings.jsx — classement + résultats par journée
 
 function StandingsTable({ onSelectManager }) {
-  const sorted = [...STANDINGS].sort((a, b) => b.pts - a.pts || (b.gf - b.ga) - (a.gf - a.ga));
+  const sorted = [...STANDINGS].sort((a, b) => (b.pts || 0) - (a.pts || 0) || ((b.gf || 0) - (b.ga || 0)) - ((a.gf || 0) - (a.ga || 0)));
   return (
     <Surface style={{ overflow: 'hidden' }}>
       <div style={{ display: 'grid', gridTemplateColumns: '28px 1fr 52px 40px', gap: 8, padding: '10px 14px', borderBottom: '1px solid ' + C.line, fontSize: 9, fontWeight: 800, color: C.mut2, fontFamily: 'Archivo,sans-serif', letterSpacing: 0.5 }}>
@@ -29,7 +29,7 @@ function StandingsTable({ onSelectManager }) {
               </div>
             </div>
             <div style={{ textAlign: 'right', fontFamily: 'Archivo,sans-serif', fontWeight: 900, fontSize: 17, color: C.acc }}>{row.pts}</div>
-            <div style={{ textAlign: 'right', fontSize: 12, fontWeight: 800, color: row.gf - row.ga >= 0 ? C.lime : C.pink }}>{row.gf - row.ga > 0 ? '+' : ''}{row.gf - row.ga}</div>
+            <div style={{ textAlign: 'right', fontSize: 12, fontWeight: 800, color: (row.gf || 0) - (row.ga || 0) >= 0 ? C.lime : C.pink }}>{(row.gf || 0) - (row.ga || 0) > 0 ? '+' : ''}{(row.gf || 0) - (row.ga || 0)}</div>
           </div>
         );
       })}
@@ -69,10 +69,11 @@ function ResultsByDay({ cardStyle }) {
 }
 
 function ManagerSquadSheet({ mgr, cardStyle, onClose }) {
+  if (!mgr) return null;
   const ids = getManagerSquadIds(mgr.id);
   const players = ids.map(byId).filter(Boolean);
   return (
-    <Sheet open={!!mgr} onClose={onClose} title={mgr ? `Effectif · ${mgr.name}` : ''}>
+    <Sheet open onClose={onClose} title={`Effectif · ${mgr.name}`}>
       {players.length === 0 ? (
         <div style={{ color: C.mut, textAlign: 'center', padding: 16 }}>Effectif vide.</div>
       ) : (

@@ -202,6 +202,7 @@ function MarketScreen({ onDone, cardStyle, onOpenPack, firstTime, profile }) {
   };
 
   const placeBid = (amt) => {
+    if (!bidFor) return;
     const next = { ...bids, [bidFor.id]: amt };
     setBids(next);
     setBidFor(null);
@@ -324,7 +325,7 @@ function MarketScreen({ onDone, cardStyle, onOpenPack, firstTime, profile }) {
                 {shown ? (
                   inPack ? <div style={{ fontSize: 12, color: C.lime }}><b>Pack prioritaire</b> — tu récupères ce joueur</div>
                   : r.youWon ? <div style={{ fontSize: 12, color: C.lime }}><b>Remporté pour {r.winner.amt} crédits</b></div>
-                  : r.winner ? <div style={{ fontSize: 12, color: C.mut }}>Remporté par <b style={{ color: C.txt }}>{r.winner.mgr.name}</b> · ta mise {r.mine || '—'}</div>
+                  : r.winner ? <div style={{ fontSize: 12, color: C.mut }}>Remporté par <b style={{ color: C.txt }}>{r.winner.mgr?.name || 'un adversaire'}</b> · ta mise {r.mine || '—'}</div>
                   : <div style={{ fontSize: 12, color: C.mut2 }}>Aucune mise</div>
                 ) : <div style={{ fontSize: 12, color: C.mut2 }}>···</div>}
               </div>

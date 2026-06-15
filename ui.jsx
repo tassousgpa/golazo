@@ -232,6 +232,14 @@ function Chip({ children, color = C.acc, solid, style = {} }) {
 }
 
 function Avatar({ mgr, size = 38, ring }) {
+  if (!mgr) {
+    return (
+      <div style={{
+        width: size, height: size, borderRadius: '50%', flexShrink: 0,
+        background: C.surf2, border: '1px solid ' + C.line,
+      }} />
+    );
+  }
   const initial = (mgr.name || '?').charAt(0).toUpperCase();
   return (
     <div style={{
